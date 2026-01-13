@@ -36,3 +36,12 @@
   - Inmutabilidad en definiciones de identidad.
   - Separación de contrato vs implementación.
 
+
+### [2026-01-13] FASE 1: Modelo de Identidad
+- **Acción:** Definición del modelo de identidad en tiempo de ejecución (`RuntimeIdentity`).
+- **Estados modelados:**
+  - `anonymous`: Estado por defecto.
+  - `authenticated`: Identidad válida con `UserIdentity`.
+  - `invalid`: Estado explícito de error (no null).
+- **Justificación:** Uso de *Discriminated Unions* para obligar al sistema a manejar todos los estados de autenticación antes de ejecutar lógica de negocio.
+
