@@ -15,3 +15,12 @@
 - **Estado:** EN PROGRESO
 - **Rama activa:** `phase-1-security`
 
+
+### [2026-01-13] FASE 1: Estructura Base de Seguridad
+- **Acción:** Creación de scaffolding de directorios para separación de responsabilidades.
+- **Estructura definida:**
+  - `src/security`: Autoridad de decisiones de acceso.
+  - `src/domain`: Definiciones puras de negocio.
+  - `src/app`: Capa de presentación (vacía).
+- **Nota:** No hay lógica implementada ni dependencias instaladas.
+
