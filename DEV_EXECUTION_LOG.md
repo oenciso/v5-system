@@ -24,3 +24,15 @@
   - `src/app`: Capa de presentación (vacía).
 - **Nota:** No hay lógica implementada ni dependencias instaladas.
 
+
+### [2026-01-13] FASE 1: Contratos de Seguridad
+- **Acción:** Definición de interfaces y tipos base (TypeScript) para el subsistema de seguridad.
+- **Entregables:**
+  - `src/security/auth/types.ts`: Modelado de identidad inmutable (`UserIdentity`).
+  - `src/security/policies/contracts.ts`: Definición de resultados deterministas (`AuthorizationResult`) y evaluación de políticas.
+  - `src/security/guards/contracts.ts`: Contrato de Guards y excepción base (`SecurityViolation`).
+- **Principios aplicados:**
+  - "Deny by Default" explícito en tipos de retorno.
+  - Inmutabilidad en definiciones de identidad.
+  - Separación de contrato vs implementación.
+
