@@ -45,3 +45,12 @@
   - `invalid`: Estado explícito de error (no null).
 - **Justificación:** Uso de *Discriminated Unions* para obligar al sistema a manejar todos los estados de autenticación antes de ejecutar lógica de negocio.
 
+
+### [2026-01-13] FASE 1: Security Kernel (Punto de Entrada)
+- **Acción:** Definición del contrato `SecurityKernel` (`src/security/kernel.ts`).
+- **Propósito:** Actuar como fachada única para el subsistema de seguridad.
+- **Reglas impuestas:**
+  - Prohibido instanciar Guards o Policies fuera de este kernel.
+  - La autenticación y autorización deben invocarse explícitamente a través de esta interfaz.
+  - Estandarización de métodos `authenticate`, `authorize` y `assertAuthorized`.
+
