@@ -108,8 +108,8 @@ La Fase 3 implementará:
 
 ### Estado
 - **Fase:** 3 - Infraestructura de Comandos
-- **Paso Actual:** 1 - Contrato DomainCommand
-- **Estado:** EN PROGRESO
+- **Paso Actual:** 2 - Modelo de Idempotencia
+- **Estado:** COMPLETADO ✅
 - **Rama:** `phase-3-domain-commands`
 
 ### Paso 1: Contrato DomainCommand — COMPLETADO ✅
@@ -184,6 +184,101 @@ interface DomainCommand<TPayload> {
 - ❌ Ejecución de comandos
 - ❌ Persistencia en Firestore
 - ❌ Tabla de idempotencia
+- ❌ Auditoría
+- ❌ UI
+
+---
+
+### Paso 2: Modelo de Idempotencia — COMPLETADO ✅
+- **Objetivo:** Definir el contrato canónico de idempotencia garantizando que un comando con el mismo commandId se procese como máximo una vez.
+- **Fecha:** 2026-01-14
+- **Fuente:** SISTEMA_CANONICO_v1.9.md §9.4, INVARIANTES_DE_PRODUCCION.md
+
+#### Garantías de Idempotencia (§9.4)
+
+| Garantía | Descripción |
+|----------|-------------|
+| **UNICIDAD** | Cada `commandId` se procesa una sola vez |
+| **DETERMINISMO** | Reintentos devuelven el mismo resultado |
+| **AISLAMIENTO** | La clave compuesta (commandId, companyId) garantiza aislamiento por tenant |
+| **INMUTABILIDAD** | Una vez resuelto (ACCEPTED/REJECTED), el registro no cambia |
+
+#### Estructura del Registro de Idempotencia
+
+```typescript
+interface IdempotencyRecord {
+    // Identificación (clave compuesta)
+    readonly commandId: CommandId;
+    readonly companyId: CompanyId;
+    
+    // Estado de procesamiento
+    readonly status: IdempotencyStatus; // 'PENDING' | 'ACCEPTED' | 'REJECTED'
+    readonly createdAt: number;         // Unix ms
+    readonly resolvedAt?: number;       // undefined si PENDING
+    
+    // Resultado
+    readonly resultCode?: IdempotencyResultCode; // 'SUCCESS' | RejectionCode
+}
+```
+
+#### Estados de Idempotencia
+
+| Estado | Significado |
+|--------|-------------|
+| `PENDING` | Comando en procesamiento (in-flight) |
+| `ACCEPTED` | Comando procesado exitosamente |
+| `REJECTED` | Comando rechazado con razón tipada |
+
+**Diagrama de transición:**
+```
+(nuevo) → PENDING → ACCEPTED
+               ↘ REJECTED
+```
+
+#### Comportamiento Explícito con Duplicados
+
+| Situación | Comportamiento |
+|-----------|----------------|
+| Comando NO existe | Crear registro PENDING, procesar normalmente |
+| Comando PENDING (in-flight) | Rechazar con `DUPLICATE_COMMAND`, NO re-procesar |
+| Comando ACCEPTED | Devolver resultado original, NO re-procesar |
+| Comando REJECTED | Devolver rechazo original, NO re-procesar |
+
+#### TTL Canónico (INVARIANTES_DE_PRODUCCION.md)
+
+| Constante | Valor | Propósito |
+|-----------|-------|-----------|
+| `IDEMPOTENCY_TTL_MS` | 24 horas | TTL general del registro |
+| `PENDING_TIMEOUT_MS` | 5 minutos | Timeout para comandos en vuelo abandonados |
+
+#### Archivos Creados
+- `src/commands/idempotency.ts` - Contrato de idempotencia
+
+#### Archivos Modificados
+- `src/commands/index.ts` - Exportaciones de tipos de idempotencia
+
+#### ⚠️ SOLO DEFINICIÓN, NO IMPLEMENTACIÓN
+
+- Esto es SOLO la definición del modelo
+- NO hay elección de base de datos
+- NO hay lecturas/escrituras de persistencia
+- NO hay ejecución de comandos
+- NO hay lógica de Firestore
+
+#### Verificación
+- ✅ `npm run typecheck` pasa sin errores
+- ✅ IdempotencyKey define clave compuesta (commandId + companyId)
+- ✅ IdempotencyStatus define estados (PENDING, ACCEPTED, REJECTED)
+- ✅ IdempotencyRecord incluye todos los campos requeridos
+- ✅ Comportamiento con duplicados explícitamente definido
+- ✅ Comportamiento con in-flight explícitamente definido
+
+#### Lo que NO se implementó
+- ❌ Elección de base de datos
+- ❌ Lecturas de idempotencia
+- ❌ Escrituras de idempotencia
+- ❌ Lógica de Firestore
+- ❌ Ejecución de comandos
 - ❌ Auditoría
 - ❌ UI
 

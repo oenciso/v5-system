@@ -35,3 +35,26 @@ export {
     isAccepted,
     isRejected
 } from './contracts';
+
+// Idempotency types
+export type {
+    IdempotencyKey,
+    IdempotencyStatus,
+    IdempotencyRecord,
+    IdempotencyResultCode,
+    DuplicateBehavior,
+    IdempotencyCheckResult,
+    IdempotencyNew,
+    IdempotencyInFlight,
+    IdempotencyCached
+} from './idempotency';
+
+// Idempotency constants and helpers
+export {
+    IDEMPOTENCY_TTL_MS,
+    PENDING_TIMEOUT_MS,
+    isNewCommand,
+    isInFlight,
+    isCached,
+    createIdempotencyKey
+} from './idempotency';
