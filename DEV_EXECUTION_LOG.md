@@ -11,7 +11,7 @@ Cada sub-paso debe ser atómico, auditable y reversible.
 
 ### Estado
 - **Fase:** 2 - Implementación Real de Seguridad
-- **Paso Actual:** 10 - Módulos y capacidades (definición)
+- **Paso Actual:** 11 - Mapeo rol → capacidad (declarativo)
 - **Estado:** EN PROGRESO
 - **Rama:** `phase-2-security-implementation`
 
@@ -508,6 +508,60 @@ type SystemModule =
 - ❌ Lógica de permisos
 - ❌ Firestore
 - ❌ Comandos de dominio
+- ❌ UI
+
+### Paso 11: Mapeo Rol → Capacidad (Declarativo) — COMPLETADO ✅
+- **Objetivo:** Definir relación rol-capacidad declarativamente.
+- **Fecha:** 2026-01-14
+- **Fuente:** SISTEMA_CANONICO_v1.4.md, v1.5.md, v1.7.md
+
+#### Descubrimiento Crítico del Canon
+
+**El canon NO define un mapeo rol → capacidad automático.**
+
+> "§4.1: Los roles NO habilitan acciones operativas.
+> Las acciones reales se habilitan por capacidades y módulos."
+
+> "§4.4: El rol define hasta dónde puede DELEGAR.
+> La capacidad define qué puede EJECUTAR."
+
+#### Modelo Implementado
+
+1. **Perfiles Operativos (§5.4)** - Paquetes de capacidades RECOMENDADOS
+   - Rondinero: shift.*, rondin.*, qr.scan, incident.create, evidence.attach
+   - Guardia Accesos: shift.*, access.*, vehicle.*, qr.scan, evidence.attach
+   - Guardia General: shift.*, checklist.submit, incident.create, qr.scan, evidence.attach
+
+2. **Techos de Delegación (§4.3)** - LO MÁXIMO que un rol puede ASIGNAR
+   - Superadmin (100): todas las capacidades
+   - Admin (80): operación + supervisión + admin limitado
+   - Supervisor (70): no delega
+   - Guard (50): no delega
+
+3. **Categorías de Capacidades (§7.3-§7.5)**
+   - Operación: 22 capacidades
+   - Administración: 9 capacidades
+   - Supervisión: 3 capacidades
+
+#### Archivo Creado
+- `src/security/modules/capabilities.ts` - Perfiles y delegación
+
+#### ⚠️ NINGÚN PERMISO SE OTORGA AUTOMÁTICAMENTE
+- Las capacidades deben estar EXPLÍCITAMENTE asignadas al usuario
+- El rol define techo de delegación, NO permisos directos
+- authorize() SIN CAMBIOS
+
+#### Verificación
+- ✅ `npm run typecheck` pasa sin errores
+- ✅ Mapeos provienen estrictamente del canon
+- ✅ Definiciones son declarativas
+- ✅ Autorización no cambia
+
+#### Lo que NO se implementó
+- ❌ Permisos automáticos por rol
+- ❌ Lógica de autorización condicional
+- ❌ Firestore
+- ❌ Dominio
 - ❌ UI
 
 ---

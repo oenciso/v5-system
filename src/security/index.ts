@@ -84,3 +84,33 @@ export {
     isValidModule,
     isCapabilityInModule
 } from './modules/definitions';
+
+// Perfiles y delegación (PASO 11)
+export type {
+    OperativeProfile,
+    RoleDelegationCeiling
+} from './modules/capabilities';
+
+export {
+    // Categorías de capacidades
+    OPERATION_CAPABILITIES,
+    ADMIN_CAPABILITIES,
+    SUPERVISION_CAPABILITIES,
+    // Perfiles operativos
+    PROFILE_RONDINERO,
+    PROFILE_GUARDIA_ACCESOS,
+    PROFILE_GUARDIA_GENERAL,
+    CANONICAL_PROFILES,
+    // Techos de delegación
+    CEILING_SUPERADMIN,
+    CEILING_ADMIN,
+    CEILING_SUPERVISOR,
+    CEILING_GUARD,
+    DELEGATION_CEILINGS,
+    // Funciones de consulta
+    getDelegationCeiling,
+    canRoleDelegateTo,
+    canRoleDelegateCapability,
+    getRoleLevel,
+    isRoleSuperior
+} from './modules/capabilities';
