@@ -1,0 +1,16 @@
+{
+  "name": "v5-system",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Sistema de operación de seguridad privada - Fase 2",
+  "scripts": {
+    "lint": "echo 'Lint: No hay código implementado aún' && exit 0",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "typescript": "^5.3.0"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}

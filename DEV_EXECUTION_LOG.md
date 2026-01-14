@@ -11,8 +11,8 @@ Cada sub-paso debe ser atómico, auditable y reversible.
 
 ### Estado
 - **Fase:** 2 - Implementación Real de Seguridad
-- **Paso Actual:** 1 - Preparación para implementación (sin lógica aún)
-- **Estado:** EN PREPARACIÓN
+- **Paso Actual:** 2 - Bootstrap técnico mínimo
+- **Estado:** EN PROGRESO
 - **Rama:** `phase-2-security-implementation`
 
 ### Alcance de la Fase 2
@@ -57,7 +57,7 @@ Según RFC-0 (Fase 2 - Infraestructura de comandos):
 - ✅ El estado queda claro y auditable
 
 #### Pendientes Explícitos (NO para Paso 1)
-- [ ] `package.json` y `tsconfig.json` (requiere decisión de estructura)
+- [x] `package.json` y `tsconfig.json` → Completado en Paso 2
 - [ ] Firebase Admin SDK (requiere configuración de proyecto)
 - [ ] Cloud Functions scaffold
 - [ ] Implementación concreta de SecurityKernel
@@ -71,6 +71,53 @@ Según RFC-0 (Fase 2 - Infraestructura de comandos):
 - No hay AuthProvider real.
 - No hay conexión a Firebase Auth.
 - PolicyEvaluator sin implementación concreta.
+
+### Paso 2: Bootstrap Técnico Mínimo — COMPLETADO ✅
+- **Objetivo:** Inicializar entorno técnico mínimo sin implementar seguridad.
+- **Fecha:** 2026-01-14
+
+#### Archivos Creados
+| Archivo | Propósito |
+|---------|-----------|
+| `package.json` | Proyecto privado, scripts lint/typecheck, solo TypeScript como devDep |
+| `tsconfig.json` | Strict activado, ES2022, sin paths complejos |
+| `.gitignore` | Exclusión de node_modules, dist, IDE files |
+
+#### Configuración de package.json
+```json
+{
+  "name": "v5-system",
+  "private": true,
+  "scripts": {
+    "lint": "placeholder (echo)",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "typescript": "^5.3.0"
+  }
+}
+```
+
+#### Configuración de tsconfig.json
+- `strict: true` ✅
+- `noEmit: true` ✅
+- `noUnusedLocals: true` ✅
+- `noUnusedParameters: true` ✅
+- `exactOptionalPropertyTypes: true` ✅
+- `noUncheckedIndexedAccess: true` ✅
+
+#### Verificación
+- ✅ `npm run typecheck` pasa sin errores
+- ✅ `npm run lint` pasa (placeholder)
+- ✅ CI sigue bloqueante (condicional en package.json)
+- ✅ No hay lógica funcional implementada
+
+#### Lo que NO se implementó
+- ❌ Autenticación
+- ❌ Firebase SDK
+- ❌ Lógica del SecurityKernel
+- ❌ Cloud Functions
+- ❌ Dominio funcional
 
 ---
 
