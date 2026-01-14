@@ -19,7 +19,9 @@ import {
     RondinId,
     RondinStatus,
     GeoLocation,
-    ActiveRondinQuery
+    ActiveRondinQuery,
+    RondinCheckpointRecord,
+    CheckpointId
 } from './types';
 
 // ============================================================================
@@ -64,6 +66,29 @@ export interface RondinStore {
         companyId: CompanyId,
         rondinId: RondinId
     ): Promise<RondinRecord | null>;
+
+    /**
+     * Create a checkpoint record.
+     */
+    createCheckpoint(checkpoint: RondinCheckpointRecord): Promise<void>;
+
+    /**
+     * Check if a checkpoint already exists for a rondin.
+     */
+    checkpointExists(
+        companyId: CompanyId,
+        rondinId: RondinId,
+        checkpointId: CheckpointId
+    ): Promise<boolean>;
+
+    /**
+     * Get a checkpoint by ID.
+     */
+    getCheckpoint(
+        companyId: CompanyId,
+        rondinId: RondinId,
+        checkpointId: CheckpointId
+    ): Promise<RondinCheckpointRecord | null>;
 }
 
 // ============================================================================
@@ -196,6 +221,91 @@ export class FirestoreRondinStore implements RondinStore {
 
         return documentToRecord(snapshot.data() as RondinDocument);
     }
+
+    // ========================================================================
+    // CHECKPOINT METHODS
+    // ========================================================================
+
+    /**
+     * Get the checkpoints subcollection for a rondin.
+     */
+    private checkpointsCollection(
+        companyId: CompanyId,
+        rondinId: RondinId
+    ): admin.firestore.CollectionReference {
+        return this.rondinsCollection(companyId)
+            .doc(rondinId)
+            .collection('checkpoints');
+    }
+
+    async createCheckpoint(checkpoint: RondinCheckpointRecord): Promise<void> {
+        const docRef = this.checkpointsCollection(
+            checkpoint.companyId,
+            checkpoint.rondinId
+        ).doc(checkpoint.checkpointId);
+
+        const doc: CheckpointDocument = {
+            rondinId: checkpoint.rondinId,
+            checkpointId: checkpoint.checkpointId,
+            companyId: checkpoint.companyId,
+            userId: checkpoint.userId,
+            scannedAt: admin.firestore.Timestamp.fromMillis(checkpoint.scannedAt),
+            sourceCommandId: checkpoint.sourceCommandId
+        };
+
+        if (checkpoint.location !== undefined) {
+            doc.location = checkpoint.location;
+        }
+
+        await docRef.set(doc);
+    }
+
+    async checkpointExists(
+        companyId: CompanyId,
+        rondinId: RondinId,
+        checkpointId: CheckpointId
+    ): Promise<boolean> {
+        const docRef = this.checkpointsCollection(companyId, rondinId).doc(checkpointId);
+        const snapshot = await docRef.get();
+        return snapshot.exists;
+    }
+
+    async getCheckpoint(
+        companyId: CompanyId,
+        rondinId: RondinId,
+        checkpointId: CheckpointId
+    ): Promise<RondinCheckpointRecord | null> {
+        const docRef = this.checkpointsCollection(companyId, rondinId).doc(checkpointId);
+        const snapshot = await docRef.get();
+
+        if (!snapshot.exists) {
+            return null;
+        }
+
+        const doc = snapshot.data() as CheckpointDocument;
+        return {
+            rondinId: doc.rondinId,
+            checkpointId: doc.checkpointId,
+            companyId: doc.companyId,
+            userId: doc.userId,
+            scannedAt: doc.scannedAt.toMillis(),
+            sourceCommandId: doc.sourceCommandId,
+            ...(doc.location !== undefined && { location: doc.location })
+        };
+    }
+}
+
+/**
+ * Firestore document representation of RondinCheckpointRecord.
+ */
+interface CheckpointDocument {
+    rondinId: string;
+    checkpointId: string;
+    companyId: string;
+    userId: string;
+    scannedAt: admin.firestore.Timestamp;
+    location?: GeoLocation;
+    sourceCommandId: string;
 }
 
 // ============================================================================

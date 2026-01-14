@@ -110,3 +110,76 @@ export interface RondinStartReceipt {
 export type ActiveRondinQuery =
     | { hasActiveRondin: true; rondin: RondinRecord }
     | { hasActiveRondin: false };
+
+// ============================================================================
+// CHECKPOINT TYPES
+// ============================================================================
+
+/**
+ * Unique identifier for a checkpoint.
+ */
+export type CheckpointId = string;
+
+/**
+ * A checkpoint record stored in Firestore.
+ * 
+ * Collection: companies/{companyId}/rondins/{rondinId}/checkpoints/{checkpointId}
+ */
+export interface RondinCheckpointRecord {
+    /** ID of the rondin this checkpoint belongs to */
+    readonly rondinId: RondinId;
+
+    /** Unique checkpoint identifier */
+    readonly checkpointId: CheckpointId;
+
+    /** Company the checkpoint belongs to */
+    readonly companyId: CompanyId;
+
+    /** User who scanned the checkpoint */
+    readonly userId: UserId;
+
+    /** Timestamp when checkpoint was scanned (Unix ms) */
+    readonly scannedAt: number;
+
+    /** Location where checkpoint was scanned (optional) */
+    readonly location?: GeoLocation;
+
+    /** Command ID that created this record (for idempotency tracing) */
+    readonly sourceCommandId: string;
+}
+
+// ============================================================================
+// RONDIN.RECORDCHECKPOINT PAYLOAD
+// ============================================================================
+
+/**
+ * Payload for rondin.recordCheckpoint command.
+ */
+export interface RondinRecordCheckpointPayload {
+    /** ID of the rondin (required) */
+    readonly rondinId: RondinId;
+
+    /** ID of the checkpoint being recorded (required) */
+    readonly checkpointId: CheckpointId;
+
+    /** Timestamp when checkpoint was scanned (optional, defaults to now) */
+    readonly scannedAt?: number;
+
+    /** Location where checkpoint was scanned (optional) */
+    readonly location?: GeoLocation;
+}
+
+/**
+ * Receipt returned after rondin.recordCheckpoint command succeeds.
+ */
+export interface RondinRecordCheckpointReceipt {
+    /** ID of the rondin */
+    readonly rondinId: RondinId;
+
+    /** ID of the checkpoint recorded */
+    readonly checkpointId: CheckpointId;
+
+    /** Timestamp when checkpoint was scanned */
+    readonly scannedAt: number;
+}
+

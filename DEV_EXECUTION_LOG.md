@@ -108,7 +108,7 @@ La Fase 3 implementará:
 
 ### Estado
 - **Fase:** 3 - Infraestructura de Comandos
-- **Paso Actual:** 10 - Primer Comando de Rondines (rondin.start)
+- **Paso Actual:** 11 - Segundo Comando de Rondines (rondin.recordCheckpoint)
 - **Estado:** COMPLETADO ✅
 - **Rama:** `phase-3-domain-commands`
 
@@ -1183,6 +1183,112 @@ Rondin.status: ∅ → ACTIVE
 
 #### Lo que NO se implementó
 - ❌ Otros comandos de rondines (rondin.recordCheckpoint, rondin.finish)
+- ❌ Generalización de handlers
+- ❌ UI
+- ❌ Tests
+
+---
+
+### Paso 11: Segundo Comando de Rondines (rondin.recordCheckpoint) — COMPLETADO ✅
+- **Objetivo:** Registrar progreso durante un rondín ACTIVO.
+- **Fecha:** 2026-01-14
+- **Fuente:** Patrón de incident.create + validación de estado
+
+#### Comando Implementado
+
+**`rondin.recordCheckpoint`** - Registrar un checkpoint durante un rondín
+
+#### Nuevo Tipo de Registro
+
+**RondinCheckpointRecord** - Registro de checkpoint escaneado:
+- Subcolección dentro del rondín
+- Evita duplicados de checkpoints
+- Captura ubicación y timestamp
+
+#### Estructura de Firestore
+
+```
+companies/{companyId}/rondins/{rondinId}/checkpoints/{checkpointId}
+├── rondinId: string
+├── checkpointId: string
+├── companyId: string
+├── userId: string
+├── scannedAt: Timestamp
+├── location?: { latitude, longitude }
+└── sourceCommandId: string
+```
+
+#### Payload del Comando
+
+```typescript
+interface RondinRecordCheckpointPayload {
+    readonly rondinId: RondinId;           // Requerido
+    readonly checkpointId: CheckpointId;   // Requerido
+    readonly scannedAt?: number;           // Opcional, default now
+    readonly location?: GeoLocation;       // Opcional
+}
+```
+
+#### Receipt del Comando
+
+```typescript
+interface RondinRecordCheckpointReceipt {
+    readonly rondinId: RondinId;
+    readonly checkpointId: CheckpointId;
+    readonly scannedAt: number;
+}
+```
+
+#### Precondiciones Verificadas
+
+| Precondición | Rechazo si falla |
+|--------------|------------------|
+| Usuario autenticado | `UNAUTHORIZED` |
+| Rondín existe | `RESOURCE_NOT_FOUND` |
+| Rondín está ACTIVO | `INVALID_STATE` |
+| Checkpoint no duplicado | `INVALID_STATE` |
+
+*Nota: El checkpoint ID debe ser único dentro del rondín. Escaneos duplicados son rechazados.*
+
+#### Archivos Creados
+
+| Archivo | Propósito |
+|---------|----------|
+| `src/domain/rondins/commands/recordCheckpoint.ts` | Handler completo |
+
+#### Archivos Modificados
+
+| Archivo | Cambio |
+|---------|--------|
+| `src/domain/rondins/types.ts` | Agregar CheckpointId, RondinCheckpointRecord, payload/receipt |
+| `src/domain/rondins/store.ts` | Agregar createCheckpoint(), checkpointExists(), getCheckpoint() |
+| `src/domain/rondins/index.ts` | Exportar tipos y handlers |
+| `src/commands/pipeline.runner.ts` | Wiring de rondin.recordCheckpoint |
+| `DEV_EXECUTION_LOG.md` | Documentación del paso |
+
+#### Garantías Implementadas
+
+| Garantía | Estado |
+|----------|--------|
+| rondin.recordCheckpoint ejecuta de extremo a extremo | ✅ |
+| Checkpoints duplicados son rechazados | ✅ |
+| Rondín debe estar ACTIVO | ✅ |
+| Checkpoint record escrito en Firestore | ✅ |
+| Audit record emitido | ✅ |
+| Idempotency funciona para retries | ✅ |
+
+#### Verificación
+- ✅ `npm run typecheck` pasa sin errores
+- ✅ rondin.recordCheckpoint ejecuta todas las etapas
+- ✅ Payload validation valida rondinId, checkpointId, scannedAt, location
+- ✅ Precondition check verifica existencia, estado ACTIVO, no duplicado
+- ✅ Checkpoint record se persiste en subcolección
+- ✅ Audit record se emite con metadata del checkpoint
+- ✅ Idempotency funciona (duplicados corto-circuitados)
+
+#### Lo que NO se implementó
+- ❌ rondin.finish
+- ❌ Validación de secuencia de ruta
 - ❌ Generalización de handlers
 - ❌ UI
 - ❌ Tests
