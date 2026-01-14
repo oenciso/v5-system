@@ -57,8 +57,20 @@ export interface ShiftRecord {
     /** Notes when opening the shift */
     readonly openNotes?: string;
 
+    /** Location where shift was closed */
+    readonly closeLocation?: {
+        readonly latitude: number;
+        readonly longitude: number;
+    };
+
+    /** Notes when closing the shift */
+    readonly closeNotes?: string;
+
     /** Command ID that created this shift (for idempotency tracing) */
     readonly sourceCommandId: string;
+
+    /** Command ID that closed this shift */
+    readonly closeCommandId?: string;
 }
 
 // ============================================================================
@@ -93,6 +105,40 @@ export interface ShiftOpenReceipt {
 }
 
 // ============================================================================
+// SHIFT.CLOSE PAYLOAD
+// ============================================================================
+
+/**
+ * Payload for shift.close command.
+ * 
+ * Minimal data required to close a shift.
+ */
+export interface ShiftClosePayload {
+    /** Optional location when closing shift */
+    readonly location?: {
+        readonly latitude: number;
+        readonly longitude: number;
+    };
+
+    /** Optional notes when closing shift */
+    readonly notes?: string;
+}
+
+/**
+ * Receipt returned after shift.close command succeeds.
+ */
+export interface ShiftCloseReceipt {
+    /** ID of the closed shift */
+    readonly shiftId: ShiftId;
+
+    /** Timestamp when shift was closed */
+    readonly closedAt: number;
+
+    /** Duration of the shift in milliseconds */
+    readonly durationMs: number;
+}
+
+// ============================================================================
 // SHIFT QUERY RESULT
 // ============================================================================
 
@@ -102,3 +148,4 @@ export interface ShiftOpenReceipt {
 export type ActiveShiftQuery =
     | { hasActiveShift: true; shift: ShiftRecord }
     | { hasActiveShift: false };
+

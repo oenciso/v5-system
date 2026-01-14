@@ -50,7 +50,7 @@ import {
     createPipelineFailure
 } from './pipeline';
 
-// Domain command handlers
+// Domain command handlers - shift.open
 import {
     isShiftOpenCommand,
     validateShiftOpenPayload,
@@ -60,6 +60,18 @@ import {
     emitShiftOpenAudit,
     ShiftOpenExecutionContext
 } from '../domain/shifts';
+
+// Domain command handlers - shift.close
+import {
+    isShiftCloseCommand,
+    validateShiftClosePayload,
+    checkShiftClosePreconditions,
+    executeShiftClose,
+    persistShiftClose,
+    emitShiftCloseAudit,
+    ShiftCloseExecutionContext
+} from '../domain/shifts';
+
 import { ShiftStore } from '../domain/shifts/store';
 import { AuditStore } from '../audit/store';
 
@@ -357,7 +369,7 @@ async function executeIdempotencyCheck<TPayload>(
 /**
  * Execute PAYLOAD_VALIDATION stage.
  * 
- * For shift.open: validates payload using command-specific validator.
+ * For shift.open/close: validates payload using command-specific validator.
  * For other commands: no-op (assumes valid).
  */
 async function executePayloadValidation<TPayload>(
@@ -382,6 +394,12 @@ async function executePayloadValidation<TPayload>(
         ) as unknown as Promise<CommandExecutionContext<TPayload>>;
     }
 
+    if (isShiftCloseCommand(command)) {
+        return validateShiftClosePayload(
+            context as unknown as ShiftCloseExecutionContext
+        ) as unknown as Promise<CommandExecutionContext<TPayload>>;
+    }
+
     // Default: no-op placeholder for unimplemented commands
     return {
         ...context,
@@ -394,6 +412,7 @@ async function executePayloadValidation<TPayload>(
  * Execute PRECONDITION_CHECK stage.
  * 
  * For shift.open: checks user has no active shift.
+ * For shift.close: checks user has active shift.
  * For other commands: no-op (assumes met).
  */
 async function executePreconditionCheck<TPayload>(
@@ -419,6 +438,13 @@ async function executePreconditionCheck<TPayload>(
         ) as unknown as Promise<CommandExecutionContext<TPayload>>;
     }
 
+    if (isShiftCloseCommand(command)) {
+        return checkShiftClosePreconditions(
+            context as unknown as ShiftCloseExecutionContext,
+            { shiftStore: deps.shiftStore }
+        ) as unknown as Promise<CommandExecutionContext<TPayload>>;
+    }
+
     // Default: no-op placeholder for unimplemented commands
     return {
         ...context,
@@ -431,6 +457,7 @@ async function executePreconditionCheck<TPayload>(
  * Execute EXECUTION stage.
  * 
  * For shift.open: creates shift record.
+ * For shift.close: prepares close data.
  * For other commands: throws NOT_IMPLEMENTED.
  */
 async function executeExecution<TPayload>(
@@ -455,6 +482,12 @@ async function executeExecution<TPayload>(
         ) as unknown as Promise<CommandExecutionContext<TPayload>>;
     }
 
+    if (isShiftCloseCommand(command)) {
+        return executeShiftClose(
+            context as unknown as ShiftCloseExecutionContext
+        ) as unknown as Promise<CommandExecutionContext<TPayload>>;
+    }
+
     // Default: throw for unimplemented commands
     throw new StageNotImplementedError('EXECUTION');
 }
@@ -463,6 +496,7 @@ async function executeExecution<TPayload>(
  * Execute PERSISTENCE stage.
  * 
  * For shift.open: persists shift to Firestore.
+ * For shift.close: updates shift in Firestore.
  * For other commands: throws NOT_IMPLEMENTED.
  */
 async function executePersistence<TPayload>(
@@ -488,6 +522,13 @@ async function executePersistence<TPayload>(
         ) as unknown as Promise<CommandExecutionContext<TPayload>>;
     }
 
+    if (isShiftCloseCommand(command)) {
+        return persistShiftClose(
+            context as unknown as ShiftCloseExecutionContext,
+            { shiftStore: deps.shiftStore }
+        ) as unknown as Promise<CommandExecutionContext<TPayload>>;
+    }
+
     // Default: throw for unimplemented commands
     throw new StageNotImplementedError('PERSISTENCE');
 }
@@ -496,6 +537,7 @@ async function executePersistence<TPayload>(
  * Execute AUDIT_EMISSION stage.
  * 
  * For shift.open: emits audit record.
+ * For shift.close: emits audit record.
  * For other commands: throws NOT_IMPLEMENTED.
  */
 async function executeAuditEmission<TPayload>(
@@ -517,6 +559,13 @@ async function executeAuditEmission<TPayload>(
     if (isShiftOpenCommand(command)) {
         return emitShiftOpenAudit(
             context as unknown as ShiftOpenExecutionContext,
+            { auditStore: deps.auditStore }
+        ) as unknown as Promise<CommandExecutionContext<TPayload>>;
+    }
+
+    if (isShiftCloseCommand(command)) {
+        return emitShiftCloseAudit(
+            context as unknown as ShiftCloseExecutionContext,
             { auditStore: deps.auditStore }
         ) as unknown as Promise<CommandExecutionContext<TPayload>>;
     }

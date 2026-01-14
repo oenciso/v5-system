@@ -2,7 +2,7 @@
  * @fileoverview Shifts Domain Module Public API
  * @module domain/shifts
  * 
- * FASE 3 - PASO 6
+ * FASE 3 - PASO 6 & 7
  */
 
 // Types
@@ -12,6 +12,8 @@ export type {
     ShiftRecord,
     ShiftOpenPayload,
     ShiftOpenReceipt,
+    ShiftClosePayload,
+    ShiftCloseReceipt,
     ActiveShiftQuery
 } from './types';
 
@@ -29,7 +31,7 @@ export {
     resetShiftStore
 } from './store';
 
-// Commands
+// Commands - shift.open
 export {
     isShiftOpenCommand,
     validateShiftOpenPayload,
@@ -43,3 +45,19 @@ export type {
     ShiftOpenExecutionContext,
     ShiftOpenDependencies
 } from './commands/open';
+
+// Commands - shift.close
+export {
+    isShiftCloseCommand,
+    validateShiftClosePayload,
+    checkShiftClosePreconditions,
+    executeShiftClose,
+    persistShiftClose,
+    emitShiftCloseAudit
+} from './commands/close';
+
+export type {
+    ShiftCloseExecutionContext,
+    ShiftCloseDependencies
+} from './commands/close';
+

@@ -51,6 +51,21 @@ export interface ShiftStore {
     createShift(shift: ShiftRecord): Promise<void>;
 
     /**
+     * Close an existing shift.
+     * Updates the shift to CLOSED status with close timestamp and optional location/notes.
+     */
+    closeShift(
+        companyId: CompanyId,
+        shiftId: ShiftId,
+        closeData: {
+            closedAt: number;
+            closeCommandId: string;
+            closeLocation?: { latitude: number; longitude: number };
+            closeNotes?: string;
+        }
+    ): Promise<void>;
+
+    /**
      * Get a shift by ID.
      */
     getShift(
@@ -78,7 +93,13 @@ interface ShiftDocument {
         longitude: number;
     };
     openNotes?: string;
+    closeLocation?: {
+        latitude: number;
+        longitude: number;
+    };
+    closeNotes?: string;
     sourceCommandId: string;
+    closeCommandId?: string;
 }
 
 /**
@@ -122,7 +143,10 @@ function documentToRecord(doc: ShiftDocument): ShiftRecord {
         sourceCommandId: doc.sourceCommandId,
         ...(doc.closedAt !== undefined && { closedAt: doc.closedAt.toMillis() }),
         ...(doc.openLocation !== undefined && { openLocation: doc.openLocation }),
-        ...(doc.openNotes !== undefined && { openNotes: doc.openNotes })
+        ...(doc.openNotes !== undefined && { openNotes: doc.openNotes }),
+        ...(doc.closeLocation !== undefined && { closeLocation: doc.closeLocation }),
+        ...(doc.closeNotes !== undefined && { closeNotes: doc.closeNotes }),
+        ...(doc.closeCommandId !== undefined && { closeCommandId: doc.closeCommandId })
     };
 
     return record;
@@ -180,6 +204,35 @@ export class FirestoreShiftStore implements ShiftStore {
         const doc = recordToDocument(shift);
 
         await docRef.set(doc);
+    }
+
+    async closeShift(
+        companyId: CompanyId,
+        shiftId: ShiftId,
+        closeData: {
+            closedAt: number;
+            closeCommandId: string;
+            closeLocation?: { latitude: number; longitude: number };
+            closeNotes?: string;
+        }
+    ): Promise<void> {
+        const docRef = this.shiftsCollection(companyId).doc(shiftId);
+
+        const updateData: Partial<ShiftDocument> = {
+            status: 'CLOSED',
+            closedAt: admin.firestore.Timestamp.fromMillis(closeData.closedAt),
+            closeCommandId: closeData.closeCommandId
+        };
+
+        if (closeData.closeLocation !== undefined) {
+            updateData.closeLocation = closeData.closeLocation;
+        }
+
+        if (closeData.closeNotes !== undefined) {
+            updateData.closeNotes = closeData.closeNotes;
+        }
+
+        await docRef.update(updateData);
     }
 
     async getShift(

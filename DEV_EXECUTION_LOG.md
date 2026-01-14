@@ -108,7 +108,7 @@ La Fase 3 implementará:
 
 ### Estado
 - **Fase:** 3 - Infraestructura de Comandos
-- **Paso Actual:** 6 - Primer Comando Real (shift.open)
+- **Paso Actual:** 7 - Segundo Comando Real (shift.close)
 - **Estado:** COMPLETADO ✅
 - **Rama:** `phase-3-domain-commands`
 
@@ -737,6 +737,122 @@ interface ShiftOpenReceipt {
 #### Lo que NO se implementó
 - ❌ Otros comandos (shift.close, incident.create, etc.)
 - ❌ Generalización prematura
+- ❌ UI
+- ❌ Tests
+
+---
+
+### Paso 7: Segundo Comando Real (shift.close) — COMPLETADO ✅
+- **Objetivo:** Implementar segundo comando siguiendo la misma plantilla que shift.open.
+- **Fecha:** 2026-01-14
+- **Fuente:** Plantilla de shift.open (Step 6)
+
+#### Comando Implementado
+
+**`shift.close`** - Cerrar turno de guardia
+
+#### Reutilización de Patrones
+
+Se reutilizó la misma estructura que shift.open:
+- Mismo agregado (Shift)
+- Misma auditoría e idempotencia
+- Misma estructura de handlers
+- Sin generalización prematura
+
+#### Flujo Completo del Pipeline
+
+| Etapa | Implementación |
+|-------|----------------|
+| `PAYLOAD_VALIDATION` | Valida coordenadas y notas opcionales |
+| `PRECONDITION_CHECK` | Verifica usuario tiene turno activo |
+| `EXECUTION` | Prepara datos de cierre y calcula duración |
+| `PERSISTENCE` | Actualiza turno a CLOSED en Firestore |
+| `AUDIT_EMISSION` | Escribe registro de auditoría |
+
+#### Payload del Comando
+
+```typescript
+interface ShiftClosePayload {
+    readonly location?: {
+        readonly latitude: number;  // -90 a 90
+        readonly longitude: number; // -180 a 180
+    };
+    readonly notes?: string;
+}
+```
+
+#### Receipt del Comando
+
+```typescript
+interface ShiftCloseReceipt {
+    readonly shiftId: ShiftId;
+    readonly closedAt: number;
+    readonly durationMs: number;
+}
+```
+
+#### Precondiciones Verificadas
+
+| Precondición | Rechazo si falla |
+|--------------|------------------|
+| Usuario autenticado | `UNAUTHORIZED` |
+| Usuario tiene turno activo | `INVALID_STATE` |
+| Turno pertenece al usuario | `FORBIDDEN` |
+
+#### Transición de Estado
+
+```
+Shift.status: ACTIVE → CLOSED
+```
+
+#### Campos Actualizados en Firestore
+
+| Campo | Descripción |
+|-------|-------------|
+| `status` | Cambia de `'ACTIVE'` a `'CLOSED'` |
+| `closedAt` | Timestamp del cierre |
+| `closeCommandId` | ID del comando que cerró el turno |
+| `closeLocation` | Ubicación (opcional) |
+| `closeNotes` | Notas (opcional) |
+
+#### Archivos Creados
+
+| Archivo | Propósito |
+|---------|----------|
+| `src/domain/shifts/commands/close.ts` | Handler completo de shift.close |
+
+#### Archivos Modificados
+
+| Archivo | Cambio |
+|---------|--------|
+| `src/domain/shifts/types.ts` | Agregar ShiftClosePayload, ShiftCloseReceipt, campos de cierre |
+| `src/domain/shifts/store.ts` | Agregar método closeShift() |
+| `src/domain/shifts/index.ts` | Exportar tipos y handlers de shift.close |
+| `src/commands/pipeline.runner.ts` | Wiring de shift.close en todas las etapas |
+| `DEV_EXECUTION_LOG.md` | Documentación del paso |
+
+#### Garantías Implementadas
+
+| Garantía | Estado |
+|----------|--------|
+| shift.close ejecuta de extremo a extremo | ✅ |
+| Precondiciones verificadas | ✅ |
+| Turno transiciona a CLOSED | ✅ |
+| Audit record emitido | ✅ |
+| Duplicado retorna resultado cacheado | ✅ |
+
+#### Verificación
+- ✅ `npm run typecheck` pasa sin errores
+- ✅ shift.close ejecuta todas las etapas
+- ✅ Payload validation valida coordenadas y notas
+- ✅ Precondition check verifica turno activo del usuario
+- ✅ Shift record se actualiza en Firestore
+- ✅ Audit record se emite con duración del turno
+- ✅ Idempotency funciona (duplicados corto-circuitados)
+
+#### Lo que NO se implementó
+- ❌ Otros comandos (incident.create, rondin.start, etc.)
+- ❌ Generalización de handlers
 - ❌ UI
 - ❌ Tests
 
