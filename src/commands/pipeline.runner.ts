@@ -94,8 +94,20 @@ import {
     IncidentCloseExecutionContext
 } from '../domain/incidents';
 
+// Domain command handlers - rondin.start
+import {
+    isRondinStartCommand,
+    validateRondinStartPayload,
+    checkRondinStartPreconditions,
+    executeRondinStart,
+    persistRondin,
+    emitRondinStartAudit,
+    RondinStartExecutionContext
+} from '../domain/rondins';
+
 import { ShiftStore } from '../domain/shifts/store';
 import { IncidentStore } from '../domain/incidents/store';
+import { RondinStore } from '../domain/rondins/store';
 import { AuditStore } from '../audit/store';
 
 // ============================================================================
@@ -159,6 +171,12 @@ export interface PipelineRunnerDependencies {
      * Optional - defaults to FirestoreIncidentStore.
      */
     readonly incidentStore?: IncidentStore;
+
+    /**
+     * Rondin store for rondin operations.
+     * Optional - defaults to FirestoreRondinStore.
+     */
+    readonly rondinStore?: RondinStore;
 }
 
 // ============================================================================
@@ -442,6 +460,12 @@ async function executePayloadValidation<TPayload>(
         ) as unknown as Promise<CommandExecutionContext<TPayload>>;
     }
 
+    if (isRondinStartCommand(command)) {
+        return validateRondinStartPayload(
+            context as unknown as RondinStartExecutionContext
+        ) as unknown as Promise<CommandExecutionContext<TPayload>>;
+    }
+
     // Default: no-op placeholder for unimplemented commands
     return {
         ...context,
@@ -502,6 +526,13 @@ async function executePreconditionCheck<TPayload>(
         ) as unknown as Promise<CommandExecutionContext<TPayload>>;
     }
 
+    if (isRondinStartCommand(command)) {
+        return checkRondinStartPreconditions(
+            context as unknown as RondinStartExecutionContext,
+            { rondinStore: deps.rondinStore, shiftStore: deps.shiftStore }
+        ) as unknown as Promise<CommandExecutionContext<TPayload>>;
+    }
+
     // Default: no-op placeholder for unimplemented commands
     return {
         ...context,
@@ -555,6 +586,12 @@ async function executeExecution<TPayload>(
     if (isIncidentCloseCommand(command)) {
         return executeIncidentClose(
             context as unknown as IncidentCloseExecutionContext
+        ) as unknown as Promise<CommandExecutionContext<TPayload>>;
+    }
+
+    if (isRondinStartCommand(command)) {
+        return executeRondinStart(
+            context as unknown as RondinStartExecutionContext
         ) as unknown as Promise<CommandExecutionContext<TPayload>>;
     }
 
@@ -614,6 +651,13 @@ async function executePersistence<TPayload>(
         ) as unknown as Promise<CommandExecutionContext<TPayload>>;
     }
 
+    if (isRondinStartCommand(command)) {
+        return persistRondin(
+            context as unknown as RondinStartExecutionContext,
+            { rondinStore: deps.rondinStore }
+        ) as unknown as Promise<CommandExecutionContext<TPayload>>;
+    }
+
     // Default: throw for unimplemented commands
     throw new StageNotImplementedError('PERSISTENCE');
 }
@@ -666,6 +710,13 @@ async function executeAuditEmission<TPayload>(
     if (isIncidentCloseCommand(command)) {
         return emitIncidentCloseAudit(
             context as unknown as IncidentCloseExecutionContext,
+            { auditStore: deps.auditStore }
+        ) as unknown as Promise<CommandExecutionContext<TPayload>>;
+    }
+
+    if (isRondinStartCommand(command)) {
+        return emitRondinStartAudit(
+            context as unknown as RondinStartExecutionContext,
             { auditStore: deps.auditStore }
         ) as unknown as Promise<CommandExecutionContext<TPayload>>;
     }

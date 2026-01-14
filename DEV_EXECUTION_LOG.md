@@ -108,7 +108,7 @@ La Fase 3 implementará:
 
 ### Estado
 - **Fase:** 3 - Infraestructura de Comandos
-- **Paso Actual:** 9 - Segundo Comando de Incidentes (incident.close)
+- **Paso Actual:** 10 - Primer Comando de Rondines (rondin.start)
 - **Estado:** COMPLETADO ✅
 - **Rama:** `phase-3-domain-commands`
 
@@ -1073,6 +1073,116 @@ Incident.status: OPEN → CLOSED
 
 #### Lo que NO se implementó
 - ❌ Otros comandos de incidentes (incident.reopen, incident.update)
+- ❌ Generalización de handlers
+- ❌ UI
+- ❌ Tests
+
+---
+
+### Paso 10: Primer Comando de Rondines (rondin.start) — COMPLETADO ✅
+- **Objetivo:** Implementar primer comando del nuevo agregado Rondin.
+- **Fecha:** 2026-01-14
+- **Fuente:** Patrón de shift.open + dependencia de turno activo
+
+#### Comando Implementado
+
+**`rondin.start`** - Iniciar un rondín
+
+#### Nuevo Agregado de Dominio
+
+Este comando introduce un nuevo agregado:
+- **RondinRecord** - Registro de rondín
+- Estado operacional de larga duración
+- Dependencia de turno activo
+- Ruta asociada
+
+#### Estructura de Firestore
+
+```
+companies/{companyId}/rondins/{rondinId}
+├── rondinId: string
+├── companyId: string
+├── userId: string
+├── routeId: string
+├── status: 'ACTIVE' | 'FINISHED'
+├── startedAt: Timestamp
+├── finishedAt?: Timestamp
+├── startLocation?: { latitude, longitude }
+└── sourceCommandId: string
+```
+
+#### Payload del Comando
+
+```typescript
+interface RondinStartPayload {
+    readonly routeId: RouteId;        // Requerido, no vacío
+    readonly location?: GeoLocation;   // Opcional
+}
+```
+
+#### Receipt del Comando
+
+```typescript
+interface RondinStartReceipt {
+    readonly rondinId: RondinId;
+    readonly routeId: RouteId;
+    readonly startedAt: number;
+}
+```
+
+#### Precondiciones Verificadas
+
+| Precondición | Rechazo si falla |
+|--------------|------------------|
+| Usuario autenticado | `UNAUTHORIZED` |
+| Usuario tiene turno ACTIVO | `INVALID_STATE` |
+| Usuario NO tiene rondín ACTIVO | `INVALID_STATE` |
+
+*Nota: La dependencia de turno activo es crítica. No se puede iniciar un rondín sin turno.*
+
+#### Transición de Estado
+
+```
+Rondin.status: ∅ → ACTIVE
+```
+
+#### Archivos Creados
+
+| Archivo | Propósito |
+|---------|----------|
+| `src/domain/rondins/types.ts` | Tipos de dominio para rondines |
+| `src/domain/rondins/store.ts` | Persistencia Firestore de rondines |
+| `src/domain/rondins/commands/start.ts` | Handler completo de rondin.start |
+| `src/domain/rondins/index.ts` | Exportaciones del módulo |
+
+#### Archivos Modificados
+
+| Archivo | Cambio |
+|---------|--------|
+| `src/commands/pipeline.runner.ts` | Agregar rondinStore a deps, wiring de rondin.start |
+| `DEV_EXECUTION_LOG.md` | Documentación del paso |
+
+#### Garantías Implementadas
+
+| Garantía | Estado |
+|----------|--------|
+| rondin.start ejecuta de extremo a extremo | ✅ |
+| Precondiciones verificadas (turno activo, sin rondín activo) | ✅ |
+| Rondin document escrito en Firestore | ✅ |
+| Audit record emitido | ✅ |
+| Duplicado retorna resultado cacheado | ✅ |
+
+#### Verificación
+- ✅ `npm run typecheck` pasa sin errores
+- ✅ rondin.start ejecuta todas las etapas
+- ✅ Payload validation valida routeId y location
+- ✅ Precondition check verifica turno activo y sin rondín activo
+- ✅ Rondin record se persiste en Firestore
+- ✅ Audit record se emite con metadata del rondín
+- ✅ Idempotency funciona (duplicados corto-circuitados)
+
+#### Lo que NO se implementó
+- ❌ Otros comandos de rondines (rondin.recordCheckpoint, rondin.finish)
 - ❌ Generalización de handlers
 - ❌ UI
 - ❌ Tests
