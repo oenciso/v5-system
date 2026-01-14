@@ -2,38 +2,44 @@
  * @fileoverview Firebase-backed Security Kernel Implementation
  * @module security/kernel.firebase
  * 
- * FASE 2 - PASO 8: ESTADO DE EMPRESA (active/suspended)
+ * FASE 2 - PASO 9: RESOLUCIÓN MÍNIMA DE ROLES
  * 
  * Esta implementación:
  * - VERIFICA tokens reales con Firebase Auth
  * - RESUELVE identidad confiable (criptográficamente verificada)
  * - VALIDA que el usuario tenga companyId válido
  * - VALIDA que la empresa esté activa (companyStatus)
- * - RECHAZA usuarios de empresas suspendidas/eliminadas
+ * - VALIDA que el usuario tenga un rol canónico válido
+ * - RECHAZA usuarios sin rol válido
  * - MANTIENE la autorización exactamente igual
  * - NO accede a Firestore
  * - NO persiste sesiones
  * 
+ * Roles canónicos (SISTEMA_CANONICO_FINAL.md §4):
+ * - superadmin: Super Administrador
+ * - admin: Administrador
+ * - supervisor: Supervisor
+ * - guard: Guardia
+ * 
  * Fuente de datos: Custom Claims del token de Firebase
+ * - role: rol del usuario
  * - companyId: identificador de empresa
- * - companyStatus: estado de la empresa (active|suspended|deleted)
+ * - companyStatus: estado de la empresa
+ * 
+ * LOS ROLES NO HABILITAN ACCIONES.
+ * Los roles ordenan autoridad y delegación.
  * 
  * Qué valida:
  * - Firma criptográfica del token
  * - Expiración del token
- * - Emisor del token (proyecto correcto)
- * - Existencia de companyId en claims
+ * - Existencia de companyId y rol en claims
  * - companyStatus === 'active'
- * 
- * Qué NO valida aún:
- * - Que la empresa exista en Firestore
- * - Módulos habilitados
  * 
  * Principios del Canon aplicados:
  * - "Deny by default"
  * - "El cliente es hostil por diseño"
  * - "Backend como autoridad única"
- * - "Aislamiento total por empresa"
+ * - "Roles ordenan poder, no habilitan acciones"
  */
 
 import { SecurityKernel } from './kernel';
@@ -98,6 +104,15 @@ const SUSPENDED_COMPANY_IDENTITY: InvalidIdentity = Object.freeze({
     reason: 'company_suspended' as const
 });
 
+/**
+ * Identidad inválida por falta de rol canónico.
+ * PASO 9: Usuario sin rol válido asignado.
+ */
+const MISSING_ROLE_IDENTITY: InvalidIdentity = Object.freeze({
+    kind: 'invalid' as const,
+    reason: 'missing_role' as const
+});
+
 // ============================================================================
 // FUNCIONES AUXILIARES
 // ============================================================================
@@ -125,9 +140,19 @@ function extractBearerToken(authHeader: string | undefined): string | null {
 
 /**
  * Extrae el rol del token decodificado.
- * Los custom claims de Firebase pueden contener el rol.
+ * 
+ * PASO 9: Validación estricta de rol canónico
+ * - El rol debe existir en claims
+ * - El rol debe ser uno de los roles canónicos
+ * - Usuarios sin rol válido serán rechazados
+ * 
+ * Roles canónicos (SISTEMA_CANONICO_FINAL.md §4):
+ * - superadmin, admin, supervisor, guard
+ * 
+ * @param decodedToken - Token decodificado de Firebase
+ * @returns Rol válido o null si no existe/inválido
  */
-function extractRoleFromToken(decodedToken: DecodedIdToken): UserRole {
+function extractRoleFromToken(decodedToken: DecodedIdToken): UserRole | null {
     const role = decodedToken['role'] as string | undefined;
 
     const validRoles: UserRole[] = ['superadmin', 'admin', 'supervisor', 'guard'];
@@ -135,8 +160,8 @@ function extractRoleFromToken(decodedToken: DecodedIdToken): UserRole {
         return role as UserRole;
     }
 
-    // Default: guard (rol mínimo) si no hay rol en claims
-    return 'guard';
+    // Sin rol válido → rechazar
+    return null;
 }
 
 /**
@@ -258,13 +283,24 @@ export class FirebaseSecurityKernel implements SecurityKernel {
                 };
             }
 
-            // 5. Construir identidad autenticada desde token verificado
+            // 5. PASO 9: Validar que existe rol canónico
+            const role = extractRoleFromToken(decodedToken);
+
+            if (role === null) {
+                // Usuario sin rol válido → InvalidIdentity
+                return {
+                    identity: MISSING_ROLE_IDENTITY,
+                    token
+                };
+            }
+
+            // 6. Construir identidad autenticada desde token verificado
             const authenticatedIdentity: AuthenticatedIdentity = {
                 kind: 'authenticated',
                 uid: decodedToken.uid,
                 email: decodedToken.email ?? '',
                 isEmailVerified: decodedToken.email_verified ?? false,
-                role: extractRoleFromToken(decodedToken),
+                role: role,
                 companyId: companyId,
                 authTime: decodedToken.auth_time
             };

@@ -63,10 +63,11 @@ export interface AuthenticatedIdentity extends UserIdentity {
  * - malformed: token mal formado o incompleto
  * - revoked: token revocado
  * - company_suspended: empresa suspendida o eliminada
+ * - missing_role: usuario sin rol canónico válido
  */
 export interface InvalidIdentity {
     readonly kind: 'invalid';
-    readonly reason: 'expired' | 'malformed' | 'revoked' | 'company_suspended';
+    readonly reason: 'expired' | 'malformed' | 'revoked' | 'company_suspended' | 'missing_role';
 }
 
 /**

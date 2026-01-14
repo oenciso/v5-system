@@ -11,7 +11,7 @@ Cada sub-paso debe ser atómico, auditable y reversible.
 
 ### Estado
 - **Fase:** 2 - Implementación Real de Seguridad
-- **Paso Actual:** 8 - Estado de empresa (active/suspended)
+- **Paso Actual:** 9 - Resolución mínima de roles
 - **Estado:** EN PROGRESO
 - **Rama:** `phase-2-security-implementation`
 
@@ -395,6 +395,61 @@ reason: 'company_suspended'  // Empresa suspendida o eliminada
 - ❌ Escritura en Firestore
 - ❌ Nuevas políticas de autorización
 - ❌ Ejecución de dominio
+- ❌ UI
+
+### Paso 9: Resolución Mínima de Roles — COMPLETADO ✅
+- **Objetivo:** Resolver roles canónicos del token sin habilitar permisos nuevos.
+- **Fecha:** 2026-01-14
+
+#### Roles Canónicos (SISTEMA_CANONICO_FINAL.md §4)
+```typescript
+type UserRole = 'superadmin' | 'admin' | 'supervisor' | 'guard';
+```
+
+| Rol | Descripción (Canon) |
+|-----|----------------------|
+| `superadmin` | Super Administrador |
+| `admin` | Administrador |
+| `supervisor` | Supervisor |
+| `guard` | Guardia |
+
+#### Principio Canónico
+> "Los roles ordenan autoridad, no habilitan acciones."
+
+Los roles NO se usan para autorizar en este paso.
+Solo se valida que el usuario tenga un rol canónico válido.
+
+#### Comportamiento de authenticate()
+```
+1. Sin header → AnonymousIdentity
+2. Token inválido → InvalidIdentity
+3. Sin companyId → InvalidIdentity (malformed)
+4. companyStatus !== 'active' → InvalidIdentity (company_suspended)
+5. Sin rol válido → InvalidIdentity (missing_role)
+6. Todo válido → AuthenticatedIdentity (con role)
+```
+
+#### Nueva razón de invalidez
+```typescript
+reason: 'missing_role'  // Usuario sin rol canónico válido
+```
+
+#### authorize() SIN CAMBIOS
+- Política ALLOW_AUTHENTICATED funciona igual
+- Los roles NO habilitan permisos adicionales aún
+- Deny by default para todo lo demás
+
+#### Verificación
+- ✅ `npm run typecheck` pasa sin errores
+- ✅ AuthenticatedIdentity incluye role
+- ✅ Usuarios sin rol válido son rechazados
+- ✅ Autorización no cambia
+
+#### Lo que NO se implementó
+- ❌ Permisos por rol
+- ❌ Lógica condicional compleja
+- ❌ Lectura de Firestore
+- ❌ Escritura en Firestore
 - ❌ UI
 
 ---
