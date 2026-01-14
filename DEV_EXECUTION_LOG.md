@@ -108,7 +108,7 @@ La Fase 3 implementará:
 
 ### Estado
 - **Fase:** 3 - Infraestructura de Comandos
-- **Paso Actual:** 7 - Segundo Comando Real (shift.close)
+- **Paso Actual:** 8 - Primer Comando de Incidentes (incident.create)
 - **Estado:** COMPLETADO ✅
 - **Rama:** `phase-3-domain-commands`
 
@@ -852,6 +852,125 @@ Shift.status: ACTIVE → CLOSED
 
 #### Lo que NO se implementó
 - ❌ Otros comandos (incident.create, rondin.start, etc.)
+- ❌ Generalización de handlers
+- ❌ UI
+- ❌ Tests
+
+---
+
+### Paso 8: Primer Comando de Incidentes (incident.create) — COMPLETADO ✅
+- **Objetivo:** Implementar primer comando de nueva entidad de dominio (Incident).
+- **Fecha:** 2026-01-14
+- **Fuente:** Patrón de shift.open + requisitos de payload más rico
+
+#### Comando Implementado
+
+**`incident.create`** - Crear un incidente
+
+#### Nueva Entidad de Dominio
+
+Este comando introduce una nueva entidad:
+- **IncidentRecord** - Registro de incidente
+- Entidad separada de Shift
+- Payload más rico con validaciones
+- Soporte para evidencia (referencias)
+
+#### Estructura de Firestore
+
+```
+companies/{companyId}/incidents/{incidentId}
+├── incidentId: string
+├── reporterId: string
+├── companyId: string
+├── status: 'OPEN' | 'CLOSED'
+├── title: string (requerido, max 500)
+├── description?: string (max 5000)
+├── severity: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL'
+├── location?: { latitude, longitude }
+├── createdAt: Timestamp
+├── closedAt?: Timestamp
+├── sourceCommandId: string
+└── evidenceRefs?: string[]
+```
+
+#### Payload del Comando
+
+```typescript
+interface IncidentCreatePayload {
+    readonly title: string;          // Requerido, no vacío, max 500
+    readonly description?: string;   // Opcional, max 5000
+    readonly severity: IncidentSeverity;  // Requerido
+    readonly location?: GeoLocation; // Opcional
+    readonly evidenceRefs?: readonly string[];  // Opcional
+}
+```
+
+#### Receipt del Comando
+
+```typescript
+interface IncidentCreateReceipt {
+    readonly incidentId: IncidentId;
+    readonly createdAt: number;
+    readonly severity: IncidentSeverity;
+}
+```
+
+#### Validaciones de Payload
+
+| Campo | Validación |
+|-------|------------|
+| `title` | Requerido, string, no vacío, max 500 caracteres |
+| `severity` | Requerido, enum: LOW/MEDIUM/HIGH/CRITICAL |
+| `description` | Opcional, string, max 5000 caracteres |
+| `location` | Opcional, lat -90 a 90, lng -180 a 180 |
+| `evidenceRefs` | Opcional, array de strings no vacíos |
+
+#### Precondiciones Verificadas
+
+| Precondición | Rechazo si falla |
+|--------------|------------------|
+| Usuario autenticado | `UNAUTHORIZED` |
+
+*Nota: A diferencia de shift.open, no hay precondiciones de dominio. Los usuarios pueden crear incidentes en cualquier momento.*
+
+#### Archivos Creados
+
+| Archivo | Propósito |
+|---------|----------|
+| `src/domain/incidents/types.ts` | Tipos de dominio para incidentes |
+| `src/domain/incidents/store.ts` | Persistencia Firestore de incidentes |
+| `src/domain/incidents/commands/create.ts` | Handler completo de incident.create |
+| `src/domain/incidents/index.ts` | Exportaciones del módulo |
+
+#### Archivos Modificados
+
+| Archivo | Cambio |
+|---------|--------|
+| `src/commands/pipeline.runner.ts` | Agregar incidentStore a deps, wiring de incident.create |
+| `DEV_EXECUTION_LOG.md` | Documentación del paso |
+
+#### Garantías Implementadas
+
+| Garantía | Estado |
+|----------|--------|
+| incident.create ejecuta de extremo a extremo | ✅ |
+| Idempotencia funciona | ✅ |
+| Payload validation rechaza datos inválidos | ✅ |
+| Incident document escrito en Firestore | ✅ |
+| Audit record emitido (append-only) | ✅ |
+| Duplicado retorna resultado cacheado | ✅ |
+
+#### Verificación
+- ✅ `npm run typecheck` pasa sin errores
+- ✅ incident.create ejecuta todas las etapas
+- ✅ Payload validation valida title, severity, description, location, evidenceRefs
+- ✅ Incident record se persiste en Firestore
+- ✅ Audit record se emite con metadata del incidente
+- ✅ Idempotency funciona (duplicados corto-circuitados)
+
+#### Lo que NO se implementó
+- ❌ Otros comandos de incidentes (incident.close)
+- ❌ Lógica de upload de evidencia (solo referencias)
 - ❌ Generalización de handlers
 - ❌ UI
 - ❌ Tests

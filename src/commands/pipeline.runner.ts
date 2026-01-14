@@ -72,7 +72,19 @@ import {
     ShiftCloseExecutionContext
 } from '../domain/shifts';
 
+// Domain command handlers - incident.create
+import {
+    isIncidentCreateCommand,
+    validateIncidentCreatePayload,
+    checkIncidentCreatePreconditions,
+    executeIncidentCreate,
+    persistIncident,
+    emitIncidentCreateAudit,
+    IncidentCreateExecutionContext
+} from '../domain/incidents';
+
 import { ShiftStore } from '../domain/shifts/store';
+import { IncidentStore } from '../domain/incidents/store';
 import { AuditStore } from '../audit/store';
 
 // ============================================================================
@@ -130,6 +142,12 @@ export interface PipelineRunnerDependencies {
      * Optional - defaults to FirestoreAuditStore.
      */
     readonly auditStore?: AuditStore;
+
+    /**
+     * Incident store for incident operations.
+     * Optional - defaults to FirestoreIncidentStore.
+     */
+    readonly incidentStore?: IncidentStore;
 }
 
 // ============================================================================
@@ -370,6 +388,7 @@ async function executeIdempotencyCheck<TPayload>(
  * Execute PAYLOAD_VALIDATION stage.
  * 
  * For shift.open/close: validates payload using command-specific validator.
+ * For incident.create: validates title, severity, location, evidenceRefs.
  * For other commands: no-op (assumes valid).
  */
 async function executePayloadValidation<TPayload>(
@@ -400,6 +419,12 @@ async function executePayloadValidation<TPayload>(
         ) as unknown as Promise<CommandExecutionContext<TPayload>>;
     }
 
+    if (isIncidentCreateCommand(command)) {
+        return validateIncidentCreatePayload(
+            context as unknown as IncidentCreateExecutionContext
+        ) as unknown as Promise<CommandExecutionContext<TPayload>>;
+    }
+
     // Default: no-op placeholder for unimplemented commands
     return {
         ...context,
@@ -413,6 +438,7 @@ async function executePayloadValidation<TPayload>(
  * 
  * For shift.open: checks user has no active shift.
  * For shift.close: checks user has active shift.
+ * For incident.create: verifies authenticated user (no domain preconditions).
  * For other commands: no-op (assumes met).
  */
 async function executePreconditionCheck<TPayload>(
@@ -445,6 +471,13 @@ async function executePreconditionCheck<TPayload>(
         ) as unknown as Promise<CommandExecutionContext<TPayload>>;
     }
 
+    if (isIncidentCreateCommand(command)) {
+        return checkIncidentCreatePreconditions(
+            context as unknown as IncidentCreateExecutionContext,
+            { incidentStore: deps.incidentStore }
+        ) as unknown as Promise<CommandExecutionContext<TPayload>>;
+    }
+
     // Default: no-op placeholder for unimplemented commands
     return {
         ...context,
@@ -458,6 +491,7 @@ async function executePreconditionCheck<TPayload>(
  * 
  * For shift.open: creates shift record.
  * For shift.close: prepares close data.
+ * For incident.create: generates incident record.
  * For other commands: throws NOT_IMPLEMENTED.
  */
 async function executeExecution<TPayload>(
@@ -488,6 +522,12 @@ async function executeExecution<TPayload>(
         ) as unknown as Promise<CommandExecutionContext<TPayload>>;
     }
 
+    if (isIncidentCreateCommand(command)) {
+        return executeIncidentCreate(
+            context as unknown as IncidentCreateExecutionContext
+        ) as unknown as Promise<CommandExecutionContext<TPayload>>;
+    }
+
     // Default: throw for unimplemented commands
     throw new StageNotImplementedError('EXECUTION');
 }
@@ -497,6 +537,7 @@ async function executeExecution<TPayload>(
  * 
  * For shift.open: persists shift to Firestore.
  * For shift.close: updates shift in Firestore.
+ * For incident.create: persists incident to Firestore.
  * For other commands: throws NOT_IMPLEMENTED.
  */
 async function executePersistence<TPayload>(
@@ -529,6 +570,13 @@ async function executePersistence<TPayload>(
         ) as unknown as Promise<CommandExecutionContext<TPayload>>;
     }
 
+    if (isIncidentCreateCommand(command)) {
+        return persistIncident(
+            context as unknown as IncidentCreateExecutionContext,
+            { incidentStore: deps.incidentStore }
+        ) as unknown as Promise<CommandExecutionContext<TPayload>>;
+    }
+
     // Default: throw for unimplemented commands
     throw new StageNotImplementedError('PERSISTENCE');
 }
@@ -538,6 +586,7 @@ async function executePersistence<TPayload>(
  * 
  * For shift.open: emits audit record.
  * For shift.close: emits audit record.
+ * For incident.create: emits audit record.
  * For other commands: throws NOT_IMPLEMENTED.
  */
 async function executeAuditEmission<TPayload>(
@@ -566,6 +615,13 @@ async function executeAuditEmission<TPayload>(
     if (isShiftCloseCommand(command)) {
         return emitShiftCloseAudit(
             context as unknown as ShiftCloseExecutionContext,
+            { auditStore: deps.auditStore }
+        ) as unknown as Promise<CommandExecutionContext<TPayload>>;
+    }
+
+    if (isIncidentCreateCommand(command)) {
+        return emitIncidentCreateAudit(
+            context as unknown as IncidentCreateExecutionContext,
             { auditStore: deps.auditStore }
         ) as unknown as Promise<CommandExecutionContext<TPayload>>;
     }
