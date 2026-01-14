@@ -11,7 +11,7 @@ Cada sub-paso debe ser atómico, auditable y reversible.
 
 ### Estado
 - **Fase:** 2 - Implementación Real de Seguridad
-- **Paso Actual:** 9 - Resolución mínima de roles
+- **Paso Actual:** 10 - Módulos y capacidades (definición)
 - **Estado:** EN PROGRESO
 - **Rama:** `phase-2-security-implementation`
 
@@ -450,6 +450,64 @@ reason: 'missing_role'  // Usuario sin rol canónico válido
 - ❌ Lógica condicional compleja
 - ❌ Lectura de Firestore
 - ❌ Escritura en Firestore
+- ❌ UI
+
+### Paso 10: Módulos y Capacidades (Definición) — COMPLETADO ✅
+- **Objetivo:** Definir módulos y capacidades canónicas sin habilitar permisos.
+- **Fecha:** 2026-01-14
+- **Fuente:** SISTEMA_CANONICO_v1.8.md
+
+#### Módulos Canónicos (8 módulos)
+```typescript
+type SystemModule =
+    | 'core'           // §8.2 Módulo Núcleo
+    | 'incidents'      // §8.3 Módulo Incidentes
+    | 'patrols'        // §8.4 Módulo Rondines
+    | 'checklists'     // §8.5 Módulo Checklists
+    | 'access_control' // §8.6 Módulo Control de Accesos
+    | 'vehicle_control'// §8.7 Módulo Control Vehicular
+    | 'evidence'       // §8.8 Módulo Evidencias
+    | 'checkpoints';   // §8.9 Módulo Puntos de Control y QR
+```
+
+#### Capacidades Definidas (26 capacidades)
+| Módulo | Capacidades |
+|--------|-------------|
+| core | shift.open, shift.close, shift.view.self |
+| incidents | incident.create, incident.view.self, incident.close, incident.attachEvidence |
+| patrols | rondin.start, rondin.recordCheckpoint, rondin.finish, qr.scan |
+| checklists | checklist.view.self, checklist.submit |
+| access_control | access.registerEntry, access.registerExit, access.view.self |
+| vehicle_control | vehicle.registerEntry, vehicle.registerExit, vehicle.view.self |
+| evidence | evidence.attach, evidence.view.self |
+| checkpoints | checkpoint.create, checkpoint.disable, checkpoint.downloadQR, qr.scan |
+
+#### Principio Canónico
+> "Una acción existe solo si capacidad + módulo + estado
+> lo permiten simultáneamente."
+
+#### Archivo Creado
+- `src/security/modules/definitions.ts` - Definiciones declarativas
+
+#### ⚠️ NINGÚN PERMISO OTORGADO
+- Estas son SOLO definiciones de tipos
+- NO hay lógica de autorización
+- NO se asignan capacidades a roles
+- authorize() SIN CAMBIOS
+
+#### Verificación
+- ✅ `npm run typecheck` pasa sin errores
+- ✅ Módulos provienen del canon (§8.2-§8.9)
+- ✅ Capacidades provienen del canon
+- ✅ Definiciones son declarativas (types/enums)
+- ✅ Autorización no cambia
+
+#### Lo que NO se implementó
+- ❌ Mapeo rol → módulo
+- ❌ Mapeo rol → capacidad
+- ❌ Lógica de permisos
+- ❌ Firestore
+- ❌ Comandos de dominio
 - ❌ UI
 
 ---

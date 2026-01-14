@@ -2,7 +2,7 @@
  * @fileoverview Security Module Public API
  * @module security
  * 
- * FASE 2 - PASO 6
+ * FASE 2 - PASO 10
  * Exportaciones públicas del módulo de seguridad.
  */
 
@@ -62,3 +62,25 @@ export {
 // Guards
 export type { SecurityGuard } from './guards/contracts';
 export { SecurityViolation } from './guards/contracts';
+
+// Módulos y capacidades canónicas (PASO 10)
+export type {
+    SystemModule,
+    CoreCapability,
+    IncidentCapability,
+    PatrolCapability,
+    ChecklistCapability,
+    AccessControlCapability,
+    VehicleControlCapability,
+    EvidenceCapability,
+    CheckpointCapability,
+    Capability,
+    ModuleCapability
+} from './modules/definitions';
+
+export {
+    CANONICAL_MODULES,
+    CAPABILITIES_BY_MODULE,
+    isValidModule,
+    isCapabilityInModule
+} from './modules/definitions';
