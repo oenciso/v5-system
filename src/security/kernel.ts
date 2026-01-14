@@ -2,9 +2,12 @@
  * @fileoverview Security Kernel Contract
  * @module security/kernel
  * 
- * FASE 2 - PASO 1: PREPARACIÓN
- * Este archivo contiene SOLO el contrato del SecurityKernel.
- * La implementación real se agregará en pasos posteriores de la Fase 2.
+ * FASE 2 - PASO 3: CONTRATO DEL SECURITY KERNEL
+ * 
+ * Este archivo define la INTERFAZ del SecurityKernel.
+ * La implementación se encuentra en ./kernel.impl.ts
+ * 
+ * @see ./kernel.impl.ts para DenyAllSecurityKernel
  */
 
 import { RequestContext, AuthContext } from './auth/types';
@@ -58,16 +61,16 @@ export interface SecurityKernel {
 }
 
 /**
- * TODO [FASE 2 - Implementación del Kernel]:
+ * FASE 2 - PASO 3: IMPLEMENTACIÓN COMPLETADA
  * 
- * PENDIENTE - NO IMPLEMENTAR EN PASO 1:
- * - [ ] Clase FirebaseSecurityKernel que implementa SecurityKernel
+ * ✅ DenyAllSecurityKernel implementado en ./kernel.impl.ts
+ * ✅ authenticate() → siempre AnonymousIdentity
+ * ✅ authorize() → siempre { allowed: false }
+ * ✅ assertAuthorized() → siempre lanza SecurityViolation
+ * 
+ * PENDIENTE para pasos futuros:
+ * - [ ] FirebaseSecurityKernel con autenticación real
  * - [ ] Inyección de dependencia para Firebase Admin Auth
  * - [ ] Integración con PolicyEvaluator concreto
  * - [ ] Conexión con sistema de auditoría
- * 
- * PRERREQUISITOS:
- * - Firebase Admin SDK configurado
- * - Variables de entorno para credenciales
- * - Estructura de Cloud Functions definida
  */

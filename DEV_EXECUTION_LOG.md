@@ -11,7 +11,7 @@ Cada sub-paso debe ser atómico, auditable y reversible.
 
 ### Estado
 - **Fase:** 2 - Implementación Real de Seguridad
-- **Paso Actual:** 2 - Bootstrap técnico mínimo
+- **Paso Actual:** 3 - Implementación mínima del SecurityKernel
 - **Estado:** EN PROGRESO
 - **Rama:** `phase-2-security-implementation`
 
@@ -60,7 +60,7 @@ Según RFC-0 (Fase 2 - Infraestructura de comandos):
 - [x] `package.json` y `tsconfig.json` → Completado en Paso 2
 - [ ] Firebase Admin SDK (requiere configuración de proyecto)
 - [ ] Cloud Functions scaffold
-- [ ] Implementación concreta de SecurityKernel
+- [x] Implementación concreta de SecurityKernel → Completado en Paso 3 (DenyAll)
 
 #### Lógica funcional implementada: **NINGUNA**
 #### Conexión a Firebase: **NO**
@@ -118,6 +118,42 @@ Según RFC-0 (Fase 2 - Infraestructura de comandos):
 - ❌ Lógica del SecurityKernel
 - ❌ Cloud Functions
 - ❌ Dominio funcional
+
+### Paso 3: Implementación Mínima del SecurityKernel — COMPLETADO ✅
+- **Objetivo:** Implementar kernel que compile, sea invocable y deniegue todo.
+- **Fecha:** 2026-01-14
+
+#### Archivos Creados/Modificados
+| Archivo | Propósito |
+|---------|-----------|
+| `src/security/kernel.impl.ts` | **NUEVO** - DenyAllSecurityKernel implementado |
+| `src/security/index.ts` | **NUEVO** - Exportaciones públicas del módulo |
+| `src/security/kernel.ts` | Actualizado header para referenciar implementación |
+
+#### Comportamiento del DenyAllSecurityKernel
+```typescript
+authenticate() → siempre AnonymousIdentity
+authorize()    → siempre { allowed: false, code: 'DENIED_BY_POLICY' }
+assertAuthorized() → siempre lanza SecurityViolation
+```
+
+#### Principios del Canon Aplicados
+- ✅ "Deny by default" (SISTEMA_CANONICO_FINAL.md §14)
+- ✅ "El cliente es hostil por diseño" (INVARIANTES_DE_PRODUCCION.md)
+- ✅ "Backend como autoridad única"
+
+#### Verificación
+- ✅ `npm run typecheck` pasa sin errores
+- ✅ El Kernel compila
+- ✅ Todos los accesos son denegados
+- ✅ No hay dependencias externas
+
+#### Lo que NO se implementó
+- ❌ Lectura de headers, cookies o tokens
+- ❌ Firebase
+- ❌ Persistencia de estado
+- ❌ Roles reales
+- ❌ Lógica de negocio
 
 ---
 
