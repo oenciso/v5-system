@@ -2,7 +2,7 @@
  * @fileoverview Security Module Public API
  * @module security
  * 
- * FASE 2 - PASO 4
+ * FASE 2 - PASO 5
  * Exportaciones públicas del módulo de seguridad.
  */
 
@@ -31,13 +31,18 @@ export type {
     RequestContext
 } from './auth/types';
 
-// Tipos de políticas
+// Tipos y políticas canónicas
 export type {
     PermissionAction,
     ResourceType,
     AccessPolicy,
     AuthorizationResult,
     PolicyEvaluator
+} from './policies/contracts';
+
+export {
+    POLICY_ALLOW_AUTHENTICATED,
+    isPolicyAllowAuthenticated
 } from './policies/contracts';
 
 // Guards

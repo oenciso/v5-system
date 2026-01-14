@@ -2,15 +2,14 @@
  * @fileoverview Access Policy Contracts
  * @module security/policies/contracts
  * 
- * FASE 2 - PASO 1: PREPARACIÓN
- * Contratos para evaluación de políticas de acceso.
- * Define QUÉ se evalúa, no CÓMO se evalúa.
+ * FASE 2 - PASO 5: AUTORIZACIÓN MÍNIMA
+ * Contratos y políticas canónicas para evaluación de acceso.
  */
 
 import { UserIdentity } from '../auth/types';
 
 export type PermissionAction = 'create' | 'read' | 'update' | 'delete' | 'execute';
-export type ResourceType = 'shift' | 'patrol' | 'incident' | 'company' | 'user';
+export type ResourceType = 'shift' | 'patrol' | 'incident' | 'company' | 'user' | 'system';
 
 /**
  * Política de acceso a evaluar.
@@ -29,24 +28,42 @@ export interface AccessPolicy {
  */
 export type AuthorizationResult =
     | { allowed: true }
-    | { allowed: false; reason: string; code: 'DENIED_BY_POLICY' | 'INSUFFICIENT_ROLE' | 'INVALID_CONTEXT' | 'TENANT_ISOLATION' };
+    | { allowed: false; reason: string; code: 'DENIED_BY_POLICY' | 'INSUFFICIENT_ROLE' | 'INVALID_CONTEXT' | 'TENANT_ISOLATION' | 'ANONYMOUS_NOT_ALLOWED' };
 
 /**
  * Contrato para evaluadores de políticas.
  * NO debe tener efectos secundarios.
  * Debe ser determinista.
- * 
- * TODO [FASE 2 - PolicyEvaluator Implementation]:
- * - Implementar RoleBasedPolicyEvaluator
- * - Matriz de permisos por rol
- * - Validación de companyId para aislamiento de tenant
- * - Logging de decisiones (no mutación)
- * 
- * PENDIENTE - NO IMPLEMENTAR EN PASO 1:
- * - [ ] Clase concreta que implementa PolicyEvaluator
- * - [ ] Inyección en SecurityKernel
- * - [ ] Tests unitarios de decisiones
  */
 export interface PolicyEvaluator {
     evaluate(user: UserIdentity, policy: AccessPolicy): Promise<AuthorizationResult>;
+}
+
+// ============================================================================
+// POLÍTICAS CANÓNICAS MÍNIMAS
+// ============================================================================
+
+/**
+ * Política: ALLOW_AUTHENTICATED
+ * 
+ * Objetivo: Permitir acceso a cualquier usuario autenticado.
+ * Uso: Verificar que el usuario tiene identidad válida antes de procesar.
+ * 
+ * Esta es la política más básica del sistema.
+ * NO verifica rol, empresa, ni permisos específicos.
+ * Solo verifica que la identidad sea AuthenticatedIdentity.
+ */
+export const POLICY_ALLOW_AUTHENTICATED: AccessPolicy = Object.freeze({
+    resource: 'system' as const,
+    action: 'read' as const
+});
+
+/**
+ * Verifica si una política coincide con la política ALLOW_AUTHENTICATED.
+ * 
+ * @param policy - Política a verificar
+ * @returns true si es la política ALLOW_AUTHENTICATED
+ */
+export function isPolicyAllowAuthenticated(policy: AccessPolicy): boolean {
+    return policy.resource === 'system' && policy.action === 'read';
 }

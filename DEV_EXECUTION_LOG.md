@@ -11,7 +11,7 @@ Cada sub-paso debe ser atómico, auditable y reversible.
 
 ### Estado
 - **Fase:** 2 - Implementación Real de Seguridad
-- **Paso Actual:** 4 - Autenticación real (sin autorización)
+- **Paso Actual:** 5 - Autorización real mínima (policy-based)
 - **Estado:** EN PROGRESO
 - **Rama:** `phase-2-security-implementation`
 
@@ -203,6 +203,51 @@ authorize() → { allowed: false, code: 'DENIED_BY_POLICY' }
 - ❌ Firebase
 - ❌ Escritura de cookies
 - ❌ Dependencias nuevas
+
+### Paso 5: Autorización Real Mínima (Policy-Based) — COMPLETADO ✅
+- **Objetivo:** Implementar autorización mínima basada en políticas explícitas.
+- **Fecha:** 2026-01-14
+
+#### Política Canónica Implementada
+
+**POLICY_ALLOW_AUTHENTICATED**
+```typescript
+{
+  resource: 'system',
+  action: 'read'
+}
+```
+
+**Comportamiento:**
+- Identidad autenticada (`kind: 'authenticated'`) → `{ allowed: true }`
+- Identidad anónima (`kind: 'anonymous'`) → `{ allowed: false, code: 'ANONYMOUS_NOT_ALLOWED' }`
+- Identidad inválida (`kind: 'invalid'`) → `{ allowed: false, code: 'INVALID_CONTEXT' }`
+- Cualquier otra política → `{ allowed: false, code: 'DENIED_BY_POLICY' }`
+
+#### Principio Deny by Default
+- Solo la política `ALLOW_AUTHENTICATED` es reconocida
+- Todas las demás políticas son DENEGADAS automáticamente
+- No hay acceso genérico
+
+#### Archivos Modificados
+| Archivo | Cambio |
+|---------|--------|
+| `src/security/policies/contracts.ts` | +POLICY_ALLOW_AUTHENTICATED, +isPolicyAllowAuthenticated(), +ResourceType 'system' |
+| `src/security/kernel.impl.ts` | +authorize() con evaluación real, +constantes de resultado |
+| `src/security/index.ts` | +exportaciones de políticas |
+
+#### Verificación
+- ✅ `npm run typecheck` pasa sin errores
+- ✅ Existe política explícita (ALLOW_AUTHENTICATED)
+- ✅ Solo un caso controlado es autorizado
+- ✅ El resto sigue denegado
+
+#### Lo que NO se implementó
+- ❌ Roles complejos
+- ❌ Base de datos
+- ❌ Firebase
+- ❌ Acceso genérico
+- ❌ UI
 
 ---
 

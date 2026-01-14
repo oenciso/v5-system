@@ -2,12 +2,13 @@
  * @fileoverview Security Kernel Implementations
  * @module security/kernel.impl
  * 
- * FASE 2 - PASO 4: AUTENTICACIÓN REAL (SIN AUTORIZACIÓN)
+ * FASE 2 - PASO 5: AUTORIZACIÓN MÍNIMA (POLICY-BASED)
  * 
  * Esta implementación:
  * - LEE credenciales desde headers
  * - RESUELVE identidad (Anonymous, Authenticated, Invalid)
- * - SIGUE DENEGANDO TODO en autorización
+ * - EVALÚA políticas explícitas (ALLOW_AUTHENTICATED)
+ * - DENIEGA todo lo no autorizado explícitamente
  * - NO depende de Firebase
  * - NO persiste sesiones
  * 
@@ -26,7 +27,7 @@ import {
     InvalidIdentity,
     UserRole
 } from './auth/types';
-import { AccessPolicy, AuthorizationResult } from './policies/contracts';
+import { AccessPolicy, AuthorizationResult, isPolicyAllowAuthenticated } from './policies/contracts';
 import { SecurityViolation } from './guards/contracts';
 
 /**
@@ -37,13 +38,37 @@ const ANONYMOUS_IDENTITY: AnonymousIdentity = Object.freeze({
 });
 
 /**
- * Resultado de denegación por defecto.
- * Usado para TODAS las autorizaciones (aún no implementamos permisos).
+ * Resultado: Autorizado.
  */
-const DENY_BY_DEFAULT: AuthorizationResult = Object.freeze({
+const ALLOW: AuthorizationResult = Object.freeze({
+    allowed: true
+});
+
+/**
+ * Resultado: Denegado - política no reconocida.
+ */
+const DENY_UNKNOWN_POLICY: AuthorizationResult = Object.freeze({
     allowed: false,
-    reason: 'Autorización no implementada. Sistema en modo deny-all.',
+    reason: 'Política no reconocida. Solo políticas explícitas son permitidas.',
     code: 'DENIED_BY_POLICY' as const
+});
+
+/**
+ * Resultado: Denegado - usuario anónimo.
+ */
+const DENY_ANONYMOUS: AuthorizationResult = Object.freeze({
+    allowed: false,
+    reason: 'Acceso denegado. Se requiere autenticación.',
+    code: 'ANONYMOUS_NOT_ALLOWED' as const
+});
+
+/**
+ * Resultado: Denegado - identidad inválida.
+ */
+const DENY_INVALID_IDENTITY: AuthorizationResult = Object.freeze({
+    allowed: false,
+    reason: 'Identidad inválida. Token expirado, malformado o revocado.',
+    code: 'INVALID_CONTEXT' as const
 });
 
 /**
@@ -301,21 +326,40 @@ export class AuthenticatingSecurityKernel implements SecurityKernel {
     }
 
     /**
-     * SIEMPRE deniega la autorización.
+     * Evalúa autorización basada en políticas explícitas.
      * 
-     * La autorización real se implementará en pasos futuros.
-     * Por ahora, todo acceso es denegado independientemente de la identidad.
+     * Políticas soportadas:
+     * - ALLOW_AUTHENTICATED: Permite si identidad es AuthenticatedIdentity
      * 
-     * @param _context - Contexto de autenticación (ignorado)
-     * @param _policy - Política a evaluar (ignorado)
-     * @returns AuthorizationResult con allowed: false (SIEMPRE)
+     * Cualquier otra política es DENEGADA por defecto.
+     * 
+     * @param context - Contexto con identidad resuelta
+     * @param policy - Política a evaluar
+     * @returns AuthorizationResult
      */
     async authorize(
-        _context: AuthContext,
-        _policy: AccessPolicy
+        context: AuthContext,
+        policy: AccessPolicy
     ): Promise<AuthorizationResult> {
-        // Deny by default - no evaluamos permisos aún
-        return DENY_BY_DEFAULT;
+        const identity = context.identity;
+
+        // 1. Verificar si es política ALLOW_AUTHENTICATED
+        if (isPolicyAllowAuthenticated(policy)) {
+            // Solo permitir si identidad es autenticada
+            switch (identity.kind) {
+                case 'authenticated':
+                    return ALLOW;
+
+                case 'anonymous':
+                    return DENY_ANONYMOUS;
+
+                case 'invalid':
+                    return DENY_INVALID_IDENTITY;
+            }
+        }
+
+        // 2. Cualquier otra política -> DENY (no reconocida)
+        return DENY_UNKNOWN_POLICY;
     }
 
     /**
@@ -355,7 +399,8 @@ export class DenyAllSecurityKernel implements SecurityKernel {
         _context: AuthContext,
         _policy: AccessPolicy
     ): Promise<AuthorizationResult> {
-        return DENY_BY_DEFAULT;
+        // Legacy: siempre deniega sin evaluar
+        return DENY_UNKNOWN_POLICY;
     }
 
     async assertAuthorized(
