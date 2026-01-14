@@ -17,14 +17,14 @@ jobs:
       # Esto permite que el check pase (skipping) en Fase 0 mientras no hay app
       # pero fallará en el futuro si se agrega código roto.
       - name: Install dependencies
-        if: hashFiles("package.json") != ""
+        if: hashFiles('package.json') != ''
         run: npm ci
 
       - name: Lint
-        if: hashFiles("package.json") != ""
+        if: hashFiles('package.json') != ''
         run: npm run lint --if-present
 
       - name: Typecheck
-        if: hashFiles("package.json") != ""
+        if: hashFiles('package.json') != ''
         run: npm run typecheck --if-present
 

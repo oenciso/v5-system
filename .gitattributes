@@ -1,0 +1,6 @@
+# Canon y docs: siempre LF, sin cambios de permisos
+*.md text eol=lf
+*.txt text eol=lf
+
+# No tocar permisos en Windows
+* -text
