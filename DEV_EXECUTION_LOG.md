@@ -104,6 +104,91 @@ La Fase 3 implementará:
 
 ---
 
+## [2026-01-14] INICIO FASE 3: Infraestructura de Comandos
+
+### Estado
+- **Fase:** 3 - Infraestructura de Comandos
+- **Paso Actual:** 1 - Contrato DomainCommand
+- **Estado:** EN PROGRESO
+- **Rama:** `phase-3-domain-commands`
+
+### Paso 1: Contrato DomainCommand — COMPLETADO ✅
+- **Objetivo:** Definir el contrato canónico de comandos de dominio.
+- **Fecha:** 2026-01-14
+- **Fuente:** SISTEMA_CANONICO_v1.9.md
+
+#### Garantías del Contrato (§9.1)
+- **INMUTABLE:** Una vez creado, no se modifica
+- **IDEMPOTENTE:** Mismo commandId = mismo resultado
+- **AUDITABLE:** Toda información necesaria para trazar
+- **TRAZABLE:** Actor, empresa, módulo, capacidad explícitos
+
+#### Estructura del Comando (§9.2)
+```typescript
+interface DomainCommand<TPayload> {
+    // Identificación
+    readonly commandId: CommandId;
+    readonly commandType: CommandType;
+    readonly version: CommandVersion;
+    
+    // Contexto de seguridad
+    readonly actor: CommandActor;
+    readonly companyId: CompanyId;
+    
+    // Contexto de ejecución
+    readonly module: SystemModule;
+    readonly capability: Capability;
+    readonly origin: CommandOrigin;
+    
+    // Timestamps
+    readonly clientTimestamp: number;
+    
+    // Datos
+    readonly payload: TPayload;
+}
+```
+
+#### Tipos de Comando Canónicos (§9.5)
+- Turnos: shift.open, shift.close, shift.close.supervised
+- Incidentes: incident.create, incident.close
+- Rondines: rondin.start, rondin.recordCheckpoint, rondin.finish
+- Checklists: checklist.submit
+- Accesos: access.registerEntry, access.registerExit
+- Vehicular: vehicle.registerEntry, vehicle.registerExit
+- Evidencias: evidence.attach
+- Checkpoints: checkpoint.create, checkpoint.disable
+
+#### Códigos de Rechazo Tipados
+- UNAUTHORIZED, FORBIDDEN, COMPANY_SUSPENDED, USER_SUSPENDED
+- MODULE_DISABLED, DUPLICATE_COMMAND
+- INVALID_STATE, PRECONDITION_FAILED, RESOURCE_NOT_FOUND
+- INVALID_PAYLOAD, VERSION_MISMATCH, INTERNAL_ERROR
+
+#### Archivos Creados
+- `src/commands/contracts.ts` - Contrato de comando
+- `src/commands/index.ts` - Índice del módulo
+
+#### ⚠️ SOLO CONTRATO, NO EJECUCIÓN
+- Esto es SOLO la definición del contrato
+- NO hay ejecución de comandos
+- NO hay persistencia
+- NO hay lógica de negocio
+
+#### Verificación
+- ✅ `npm run typecheck` pasa sin errores
+- ✅ Contrato basado en canon (§9.2)
+- ✅ Tipos de comando del canon (§9.5)
+- ✅ Seguridad consumida, no redefinida
+
+#### Lo que NO se implementó
+- ❌ Ejecución de comandos
+- ❌ Persistencia en Firestore
+- ❌ Tabla de idempotencia
+- ❌ Auditoría
+- ❌ UI
+
+---
+
 ## Resumen de Pasos Ejecutados (Fase 2)
 
 ### Dependencias del Canon
