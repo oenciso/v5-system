@@ -11,7 +11,7 @@ Cada sub-paso debe ser atómico, auditable y reversible.
 
 ### Estado
 - **Fase:** 2 - Implementación Real de Seguridad
-- **Paso Actual:** 6 - Integración con Firebase Auth
+- **Paso Actual:** 7 - Contexto de empresa (companyId)
 - **Estado:** EN PROGRESO
 - **Rama:** `phase-2-security-implementation`
 
@@ -298,6 +298,53 @@ authorize() → { allowed: false, code: 'DENIED_BY_POLICY' }
 - ❌ Reglas Firebase
 - ❌ Nuevos casos de autorización
 - ❌ Dominio de negocio
+- ❌ UI
+
+### Paso 7: Contexto de Empresa (companyId) — COMPLETADO ✅
+- **Objetivo:** Resolver companyId del usuario y rechazar usuarios sin empresa.
+- **Fecha:** 2026-01-14
+
+#### Decisión de Diseño
+**Fuente de companyId:** Custom Claims del token de Firebase
+
+**Justificación:**
+- Atomicidad: el token contiene toda la información necesaria
+- Rendimiento: no requiere llamada adicional a Firestore
+- Seguridad: claims son firmados criptográficamente
+
+#### Comportamiento de authenticate()
+```
+1. Sin header → AnonymousIdentity
+2. Token inválido → InvalidIdentity
+3. Token válido SIN companyId → InvalidIdentity (malformed)
+4. Token válido CON companyId → AuthenticatedIdentity
+```
+
+#### Validación de companyId
+- ✅ companyId debe existir en claims
+- ✅ companyId no puede estar vacío
+- ✅ Usuarios sin empresa → rechazados como InvalidIdentity
+
+#### Qué NO se valida aún
+- ❌ Que la empresa exista en Firestore
+- ❌ Estado de la empresa (activa/suspendida)
+- ❌ Módulos habilitados
+
+#### authorize() SIN CAMBIOS
+- Política ALLOW_AUTHENTICATED funciona igual
+- Deny by default para todo lo demás
+
+#### Verificación
+- ✅ `npm run typecheck` pasa sin errores
+- ✅ Identidad autenticada incluye companyId
+- ✅ Identidades sin companyId son rechazadas
+- ✅ Autorización no cambia
+
+#### Lo que NO se implementó
+- ❌ Escritura en Firestore
+- ❌ Creación de empresas
+- ❌ Activación de módulos
+- ❌ Nuevas políticas de autorización
 - ❌ UI
 
 ---

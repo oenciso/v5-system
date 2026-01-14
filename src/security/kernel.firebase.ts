@@ -2,30 +2,36 @@
  * @fileoverview Firebase-backed Security Kernel Implementation
  * @module security/kernel.firebase
  * 
- * FASE 2 - PASO 6: INTEGRACIÓN CON FIREBASE AUTH
+ * FASE 2 - PASO 7: CONTEXTO DE EMPRESA (companyId)
  * 
  * Esta implementación:
  * - VERIFICA tokens reales con Firebase Auth
  * - RESUELVE identidad confiable (criptográficamente verificada)
+ * - VALIDA que el usuario tenga companyId válido
+ * - RECHAZA usuarios sin empresa asignada
  * - MANTIENE la autorización exactamente igual
  * - NO accede a Firestore
  * - NO persiste sesiones
  * 
- * Qué valida Firebase:
+ * Fuente de companyId: Custom Claims del token de Firebase
+ * (Decisión: claims sobre Firestore por atomicidad y rendimiento)
+ * 
+ * Qué valida:
  * - Firma criptográfica del token
  * - Expiración del token
  * - Emisor del token (proyecto correcto)
+ * - Existencia de companyId en claims
  * 
  * Qué NO valida aún:
- * - Empresa del usuario
- * - Roles específicos
+ * - Que la empresa exista en Firestore
+ * - Estado de la empresa (activa/suspendida)
  * - Módulos habilitados
- * - Datos en Firestore
  * 
  * Principios del Canon aplicados:
  * - "Deny by default"
  * - "El cliente es hostil por diseño"
  * - "Backend como autoridad única"
+ * - "Aislamiento total por empresa"
  */
 
 import { SecurityKernel } from './kernel';
@@ -71,6 +77,15 @@ const DENY_INVALID_IDENTITY: AuthorizationResult = Object.freeze({
     code: 'INVALID_CONTEXT' as const
 });
 
+/**
+ * Identidad inválida por falta de empresa.
+ * PASO 7: Usuario autenticado sin companyId asignado.
+ */
+const MISSING_COMPANY_IDENTITY: InvalidIdentity = Object.freeze({
+    kind: 'invalid' as const,
+    reason: 'malformed' as const  // Se considera malformado porque falta claim requerido
+});
+
 // ============================================================================
 // FUNCIONES AUXILIARES
 // ============================================================================
@@ -114,10 +129,23 @@ function extractRoleFromToken(decodedToken: DecodedIdToken): UserRole {
 
 /**
  * Extrae el companyId del token decodificado.
+ * 
+ * PASO 7: Validación estricta de companyId
+ * - companyId debe existir y no estar vacío
+ * - Usuarios sin empresa asignada serán rechazados
+ * 
+ * @param decodedToken - Token decodificado de Firebase
+ * @returns companyId válido o null si no existe/vacío
  */
-function extractCompanyIdFromToken(decodedToken: DecodedIdToken): string {
+function extractCompanyIdFromToken(decodedToken: DecodedIdToken): string | null {
     const companyId = decodedToken['companyId'] as string | undefined;
-    return companyId ?? '';
+
+    // Validar que companyId existe y no está vacío
+    if (!companyId || companyId.trim() === '') {
+        return null;
+    }
+
+    return companyId;
 }
 
 // ============================================================================
@@ -174,14 +202,25 @@ export class FirebaseSecurityKernel implements SecurityKernel {
             const decodedToken = await this.auth.verifyIdToken(token, true);
             // El segundo parámetro 'true' verifica si el token fue revocado
 
-            // 3. Construir identidad autenticada desde token verificado
+            // 3. PASO 7: Validar que existe companyId
+            const companyId = extractCompanyIdFromToken(decodedToken);
+
+            if (companyId === null) {
+                // Usuario sin empresa asignada → InvalidIdentity
+                return {
+                    identity: MISSING_COMPANY_IDENTITY,
+                    token
+                };
+            }
+
+            // 4. Construir identidad autenticada desde token verificado
             const authenticatedIdentity: AuthenticatedIdentity = {
                 kind: 'authenticated',
                 uid: decodedToken.uid,
                 email: decodedToken.email ?? '',
                 isEmailVerified: decodedToken.email_verified ?? false,
                 role: extractRoleFromToken(decodedToken),
-                companyId: extractCompanyIdFromToken(decodedToken),
+                companyId: companyId,
                 authTime: decodedToken.auth_time
             };
 
