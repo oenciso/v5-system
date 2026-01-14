@@ -11,7 +11,7 @@ Cada sub-paso debe ser atómico, auditable y reversible.
 
 ### Estado
 - **Fase:** 2 - Implementación Real de Seguridad
-- **Paso Actual:** 5 - Autorización real mínima (policy-based)
+- **Paso Actual:** 6 - Integración con Firebase Auth
 - **Estado:** EN PROGRESO
 - **Rama:** `phase-2-security-implementation`
 
@@ -247,6 +247,57 @@ authorize() → { allowed: false, code: 'DENIED_BY_POLICY' }
 - ❌ Base de datos
 - ❌ Firebase
 - ❌ Acceso genérico
+- ❌ UI
+
+### Paso 6: Integración con Firebase Auth — COMPLETADO ✅
+- **Objetivo:** Verificar tokens reales con Firebase Auth.
+- **Fecha:** 2026-01-14
+
+#### Dependencia Agregada
+```json
+"firebase-admin": "^13.x"
+```
+
+#### Archivos Creados
+| Archivo | Propósito |
+|---------|-----------|
+| `src/security/auth/firebase.ts` | Inicialización de Firebase Admin SDK (solo Auth) |
+| `src/security/kernel.firebase.ts` | FirebaseSecurityKernel con verificación real |
+
+#### Qué valida Firebase Auth
+- ✅ Firma criptográfica del token
+- ✅ Expiración del token
+- ✅ Emisor del token (proyecto correcto)
+- ✅ Revocación del token (checkRevoked: true)
+
+#### Qué NO valida aún
+- ❌ Empresa del usuario (companyId en Firestore)
+- ❌ Roles específicos
+- ❌ Módulos habilitados
+- ❌ Datos en Firestore
+
+#### Comportamiento de FirebaseSecurityKernel.authenticate()
+```
+1. Sin header → AnonymousIdentity
+2. Token inválido (Firebase) → InvalidIdentity
+3. Token válido → AuthenticatedIdentity (con claims)
+```
+
+#### authorize() SIN CAMBIOS
+- Política ALLOW_AUTHENTICATED funciona igual
+- Deny by default para todo lo demás
+
+#### Verificación
+- ✅ `npm run typecheck` pasa sin errores
+- ✅ firebase-admin instalado
+- ✅ Tokens inválidos serán rechazados por Firebase
+- ✅ Autorización no cambia
+
+#### Lo que NO se implementó
+- ❌ Acceso a Firestore
+- ❌ Reglas Firebase
+- ❌ Nuevos casos de autorización
+- ❌ Dominio de negocio
 - ❌ UI
 
 ---

@@ -2,20 +2,33 @@
  * @fileoverview Security Module Public API
  * @module security
  * 
- * FASE 2 - PASO 5
+ * FASE 2 - PASO 6
  * Exportaciones públicas del módulo de seguridad.
  */
 
 // Contrato
 export type { SecurityKernel } from './kernel';
 
-// Implementaciones
+// Implementaciones (placeholder/local)
 export {
     AuthenticatingSecurityKernel,
     DenyAllSecurityKernel,
     createSecurityKernel,
     createDenyAllKernel
 } from './kernel.impl';
+
+// Implementación con Firebase Auth
+export {
+    FirebaseSecurityKernel,
+    createFirebaseSecurityKernel
+} from './kernel.firebase';
+
+// Firebase Auth utilities
+export {
+    initializeFirebaseAuth,
+    getFirebaseAuth,
+    isFirebaseInitialized
+} from './auth/firebase';
 
 // Tipos de autenticación
 export type {
