@@ -108,7 +108,7 @@ La Fase 3 implementará:
 
 ### Estado
 - **Fase:** 3 - Infraestructura de Comandos
-- **Paso Actual:** 2 - Modelo de Idempotencia
+- **Paso Actual:** 4 - Skeleton Mínimo del Pipeline
 - **Estado:** COMPLETADO ✅
 - **Rama:** `phase-3-domain-commands`
 
@@ -280,6 +280,229 @@ interface IdempotencyRecord {
 - ❌ Lógica de Firestore
 - ❌ Ejecución de comandos
 - ❌ Auditoría
+- ❌ UI
+
+---
+
+### Paso 3: Pipeline de Ejecución de Comandos — COMPLETADO ✅
+- **Objetivo:** Definir el contrato canónico del pipeline de ejecución de comandos.
+- **Fecha:** 2026-01-14
+- **Fuente:** SISTEMA_CANONICO_v1.9.md §9, INVARIANTES_DE_PRODUCCION.md
+
+#### Etapas del Pipeline (Orden Estricto)
+
+| # | Etapa | Efecto | Descripción |
+|---|-------|--------|-------------|
+| 1 | `INTAKE` | PURE | Normalización del comando crudo |
+| 2 | `AUTHENTICATION` | PURE | Resolución de identidad (consume SecurityKernel) |
+| 3 | `AUTHORIZATION` | PURE | Verificación de capacidad (consume SecurityKernel) |
+| 4 | `IDEMPOTENCY_CHECK` | PURE | Verificación de duplicados (consume IdempotencyRecord) |
+| 5 | `PAYLOAD_VALIDATION` | PURE | Validación del payload específico |
+| 6 | `PRECONDITION_CHECK` | PURE | Verificación de precondiciones de negocio |
+| 7 | `EXECUTION` | SIDE-EFFECTING | Ejecución de lógica de dominio (**ABSTRACT**) |
+| 8 | `PERSISTENCE` | SIDE-EFFECTING | Persistencia en Firestore (**ABSTRACT**) |
+| 9 | `AUDIT_EMISSION` | SIDE-EFFECTING | Emisión de evento de auditoría (**ABSTRACT**) |
+
+#### Justificación del Orden
+
+1. **INTAKE primero:** Normaliza antes de cualquier validación
+2. **AUTHENTICATION antes de AUTHORIZATION:** Identifica al actor antes de verificar permisos
+3. **AUTHORIZATION temprano:** Verifica permisos antes de cualquier lógica costosa
+4. **IDEMPOTENCY_CHECK antes de validación:** Detecta duplicados sin procesar payload
+5. **PAYLOAD_VALIDATION después de idempotencia:** Solo valida comandos nuevos
+6. **PRECONDITION_CHECK al final de PURE:** Verifica estado de negocio antes de efectos
+7. **SIDE-EFFECTING al final:** Efectos solo después de todas las validaciones
+
+#### Garantías del Pipeline
+
+| Garantía | Descripción |
+|----------|-------------|
+| **ORDEN** | Las etapas se ejecutan en orden estricto definido |
+| **FAIL-FAST** | Si una etapa falla, el pipeline se detiene inmediatamente |
+| **TRAZABILIDAD** | El contexto acumula información de cada etapa |
+| **DETERMINISMO** | Mismo comando + estado → mismo resultado |
+| **IDEMPOTENCIA** | Comandos duplicados devuelven resultado cacheado |
+
+#### Clasificación de Efectos
+
+| Tipo | Descripción | Etapas |
+|------|-------------|--------|
+| **PURE** | No modifica estado. Puede reintentar sin consecuencias | 1-6 |
+| **SIDE_EFFECTING** | Modifica estado. Requiere idempotencia | 7-9 |
+
+#### Códigos de Rechazo por Etapa
+
+| Etapa | Códigos |
+|-------|---------|
+| INTAKE | `INVALID_PAYLOAD`, `VERSION_MISMATCH` |
+| AUTHENTICATION | `UNAUTHORIZED`, `COMPANY_SUSPENDED`, `USER_SUSPENDED` |
+| AUTHORIZATION | `FORBIDDEN`, `MODULE_DISABLED` |
+| IDEMPOTENCY_CHECK | `DUPLICATE_COMMAND` |
+| PAYLOAD_VALIDATION | `INVALID_PAYLOAD` |
+| PRECONDITION_CHECK | `INVALID_STATE`, `PRECONDITION_FAILED`, `RESOURCE_NOT_FOUND`, `RESOURCE_LOCKED` |
+| EXECUTION | `INTERNAL_ERROR` |
+| PERSISTENCE | `INTERNAL_ERROR` |
+| AUDIT_EMISSION | `INTERNAL_ERROR` |
+
+#### Contexto de Ejecución
+
+El `CommandExecutionContext` se enriquece progresivamente:
+
+```typescript
+interface CommandExecutionContext<TPayload> {
+    // Metadata del pipeline
+    readonly currentStage: PipelineStage;
+    readonly startedAt: number;
+    
+    // Desde INTAKE
+    readonly command?: DomainCommand<TPayload>;
+    
+    // Desde AUTHENTICATION
+    readonly authContext?: AuthContext;
+    readonly identity?: RuntimeIdentity;
+    
+    // Desde AUTHORIZATION
+    readonly authorizationResult?: AuthorizationResult;
+    
+    // Desde IDEMPOTENCY_CHECK
+    readonly idempotencyResult?: IdempotencyCheckResult;
+    
+    // Desde PAYLOAD_VALIDATION
+    readonly payloadValid?: boolean;
+    
+    // Desde PRECONDITION_CHECK
+    readonly preconditionsMet?: boolean;
+    
+    // En caso de fallo
+    readonly failure?: PipelineFailure;
+}
+```
+
+#### Contratos Consumidos (FROZEN)
+
+| Contrato | Archivo | Consumido en |
+|----------|---------|--------------|
+| SecurityKernel | `src/security/kernel.ts` | AUTHENTICATION, AUTHORIZATION |
+| DomainCommand | `src/commands/contracts.ts` | INTAKE, todas las etapas |
+| IdempotencyCheckResult | `src/commands/idempotency.ts` | IDEMPOTENCY_CHECK |
+| RejectionCode | `src/commands/contracts.ts` | Todas las etapas |
+
+#### Archivos Creados
+- `src/commands/pipeline.ts` - Contrato del pipeline de ejecución
+
+#### Archivos Modificados
+- `src/commands/index.ts` - Exportaciones de tipos del pipeline
+
+#### ⚠️ SOLO DEFINICIÓN, NO IMPLEMENTACIÓN
+
+- **Esto es SOLO la definición del contrato del pipeline**
+- NO hay ejecución de comandos
+- NO hay persistencia (Firestore)
+- NO hay emisión de auditoría
+- NO hay handlers implementados
+- TODAS las etapas están marcadas como `implemented: false`
+
+#### Verificación
+- ✅ `npm run typecheck` pasa sin errores
+- ✅ Pipeline define 9 etapas ordenadas
+- ✅ Cada etapa tiene clasificación de efectos (PURE/SIDE_EFFECTING)
+- ✅ Códigos de rechazo mapeados a etapas
+- ✅ Consume SecurityKernel (no redefine)
+- ✅ Consume IdempotencyRecord (no redefine)
+- ✅ Comportamiento declarativo solamente
+
+#### Lo que NO se implementó
+- ❌ Ejecución de comandos
+- ❌ Handlers de etapas
+- ❌ Persistencia en Firestore
+- ❌ Emisión de auditoría
+- ❌ Lógica de dominio
+- ❌ Validadores de payload
+- ❌ Verificadores de precondiciones
+- ❌ UI
+
+---
+
+### Paso 4: Skeleton Mínimo del Pipeline — COMPLETADO ✅
+- **Objetivo:** Implementar skeleton mínimo y ejecutable del pipeline de comandos.
+- **Fecha:** 2026-01-14
+- **Fuente:** Contrato del pipeline (Step 3)
+
+#### Componentes Implementados
+
+| Componente | Descripción |
+|------------|-------------|
+| `runCommandPipeline()` | Función principal que ejecuta el pipeline completo |
+| `runPipelineUpToStage()` | Función para ejecutar hasta una etapa específica (testing) |
+| `StageNotImplementedError` | Error para etapas SIDE-EFFECTING no implementadas |
+| `PipelineRunnerDependencies` | Interfaz de dependencias (SecurityKernel, RequestContext) |
+
+#### Estado de Implementación por Etapa
+
+| Etapa | Estado | Comportamiento |
+|-------|--------|----------------|
+| `INTAKE` | ✅ PLACEHOLDER | No-op, comando ya normalizado |
+| `AUTHENTICATION` | ✅ WIRED | Consume `SecurityKernel.authenticate()` |
+| `AUTHORIZATION` | ✅ WIRED | Consume `SecurityKernel.authorize()` |
+| `IDEMPOTENCY_CHECK` | ✅ STUB | Siempre retorna "nuevo comando" |
+| `PAYLOAD_VALIDATION` | ✅ PLACEHOLDER | No-op, asume payload válido |
+| `PRECONDITION_CHECK` | ✅ PLACEHOLDER | No-op, asume precondiciones cumplidas |
+| `EXECUTION` | ❌ STUB | Lanza `StageNotImplementedError` |
+| `PERSISTENCE` | ❌ STUB | Lanza `StageNotImplementedError` |
+| `AUDIT_EMISSION` | ❌ STUB | Lanza `StageNotImplementedError` |
+
+#### Comportamiento del Pipeline
+
+```typescript
+// Ejecución completa (fallará en EXECUTION)
+const result = await runCommandPipeline(command, deps);
+
+// Ejecución hasta etapa específica (para testing de PURE stages)
+const result = await runPipelineUpToStage(command, deps, 'PRECONDITION_CHECK');
+```
+
+#### Garantías Implementadas
+
+| Garantía | Estado |
+|----------|--------|
+| Orden estricto de etapas | ✅ IMPLEMENTADO |
+| Fail-fast (detener en primer fallo) | ✅ IMPLEMENTADO |
+| Resultado tipado | ✅ IMPLEMENTADO |
+| Contexto acumulativo | ✅ IMPLEMENTADO |
+| SecurityKernel wired | ✅ IMPLEMENTADO |
+| Idempotency interface ready | ✅ STUB (no storage) |
+
+#### Archivos Creados
+- `src/commands/pipeline.runner.ts` - Implementación del skeleton del pipeline
+
+#### Archivos Modificados
+- `src/commands/index.ts` - Exportaciones del runner
+- `DEV_EXECUTION_LOG.md` - Documentación del paso
+
+#### ⚠️ SKELETON SOLO, NO EJECUCIÓN REAL
+
+- **Etapas PURE:** Placeholders que pasan automáticamente
+- **Etapas SIDE-EFFECTING:** Stubs que lanzan error
+- NO hay ejecución de lógica de dominio
+- NO hay escritura a Firestore
+- NO hay emisión de auditoría
+
+#### Verificación
+- ✅ `npm run typecheck` pasa sin errores
+- ✅ Pipeline ejecuta etapas en orden
+- ✅ Fail-fast funciona (detiene en primer fallo)
+- ✅ Resultado tipado retornado correctamente
+- ✅ SIDE-EFFECTING stages lanzan `StageNotImplementedError`
+- ✅ SecurityKernel consumido (no redefinido)
+- ✅ Comportamiento coincide con definición de Step 3
+
+#### Lo que NO se implementó
+- ❌ Ejecución de lógica de dominio
+- ❌ Persistencia en Firestore
+- ❌ Emisión de auditoría
+- ❌ Validación real de payload
+- ❌ Verificación real de precondiciones
+- ❌ Storage de idempotencia
 - ❌ UI
 
 ---

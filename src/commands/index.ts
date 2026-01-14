@@ -58,3 +58,47 @@ export {
     isCached,
     createIdempotencyKey
 } from './idempotency';
+
+// Pipeline types
+export type {
+    PipelineStage,
+    StageEffectType,
+    PipelineStageMetadata,
+    CommandExecutionContext,
+    PipelineFailure,
+    PipelineExecutionResult,
+    PipelineSuccess,
+    PipelineRejection,
+    CommandExecutionPipeline,
+    PipelineStageHandler,
+    StageRejectionMapping
+} from './pipeline';
+
+// Pipeline constants and helpers
+export {
+    PIPELINE_STAGE_ORDER,
+    PIPELINE_STAGE_METADATA,
+    STAGE_TO_REJECTION_CODES,
+    isPureStage,
+    isSideEffectingStage,
+    isStageImplemented,
+    getPureStages,
+    getSideEffectingStages,
+    isPipelineSuccess,
+    isPipelineRejection,
+    createInitialContext,
+    createPipelineFailure
+} from './pipeline';
+
+// Pipeline runner (PASO 4)
+export type {
+    PipelineRunnerDependencies
+} from './pipeline.runner';
+
+export {
+    StageNotImplementedError,
+    runCommandPipeline,
+    runPipelineUpToStage,
+    getLastPureStage,
+    didPureStagesComplete
+} from './pipeline.runner';
