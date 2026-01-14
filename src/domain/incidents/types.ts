@@ -96,6 +96,12 @@ export interface IncidentRecord {
     /** Command ID that created this incident (for idempotency tracing) */
     readonly sourceCommandId: string;
 
+    /** Command ID that closed this incident */
+    readonly closeCommandId?: string;
+
+    /** Notes when closing the incident */
+    readonly closeNotes?: string;
+
     /** References to attached evidence (file paths or IDs) */
     readonly evidenceRefs?: readonly string[];
 }
@@ -137,3 +143,33 @@ export interface IncidentCreateReceipt {
     /** Severity level assigned */
     readonly severity: IncidentSeverity;
 }
+
+// ============================================================================
+// INCIDENT.CLOSE PAYLOAD
+// ============================================================================
+
+/**
+ * Payload for incident.close command.
+ */
+export interface IncidentClosePayload {
+    /** ID of the incident to close (required) */
+    readonly incidentId: IncidentId;
+
+    /** Optional notes when closing the incident */
+    readonly notes?: string;
+}
+
+/**
+ * Receipt returned after incident.close command succeeds.
+ */
+export interface IncidentCloseReceipt {
+    /** ID of the closed incident */
+    readonly incidentId: IncidentId;
+
+    /** Timestamp when incident was closed */
+    readonly closedAt: number;
+
+    /** Duration of the incident in milliseconds */
+    readonly durationMs: number;
+}
+

@@ -2,7 +2,7 @@
  * @fileoverview Incidents Domain Module Public API
  * @module domain/incidents
  * 
- * FASE 3 - PASO 8
+ * FASE 3 - PASO 8 & 9
  */
 
 // Types
@@ -13,7 +13,9 @@ export type {
     GeoLocation,
     IncidentRecord,
     IncidentCreatePayload,
-    IncidentCreateReceipt
+    IncidentCreateReceipt,
+    IncidentClosePayload,
+    IncidentCloseReceipt
 } from './types';
 
 export {
@@ -49,3 +51,19 @@ export type {
     IncidentCreateExecutionContext,
     IncidentCreateDependencies
 } from './commands/create';
+
+// Commands - incident.close
+export {
+    isIncidentCloseCommand,
+    validateIncidentClosePayload,
+    checkIncidentClosePreconditions,
+    executeIncidentClose,
+    persistIncidentClose,
+    emitIncidentCloseAudit
+} from './commands/close';
+
+export type {
+    IncidentCloseExecutionContext,
+    IncidentCloseDependencies
+} from './commands/close';
+

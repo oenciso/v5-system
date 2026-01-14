@@ -108,7 +108,7 @@ La Fase 3 implementará:
 
 ### Estado
 - **Fase:** 3 - Infraestructura de Comandos
-- **Paso Actual:** 8 - Primer Comando de Incidentes (incident.create)
+- **Paso Actual:** 9 - Segundo Comando de Incidentes (incident.close)
 - **Estado:** COMPLETADO ✅
 - **Rama:** `phase-3-domain-commands`
 
@@ -971,6 +971,108 @@ interface IncidentCreateReceipt {
 #### Lo que NO se implementó
 - ❌ Otros comandos de incidentes (incident.close)
 - ❌ Lógica de upload de evidencia (solo referencias)
+- ❌ Generalización de handlers
+- ❌ UI
+- ❌ Tests
+
+---
+
+### Paso 9: Segundo Comando de Incidentes (incident.close) — COMPLETADO ✅
+- **Objetivo:** Completar el ciclo de vida del incidente con el comando de cierre.
+- **Fecha:** 2026-01-14
+- **Fuente:** Patrón de shift.close aplicado a incidentes
+
+#### Comando Implementado
+
+**`incident.close`** - Cerrar un incidente
+
+#### Reutilización de Patrones
+
+Se reutilizó la misma estructura que shift.close:
+- Mismo patrón de transición de estado
+- Misma estructura de preconditions (verificar existencia y estado)
+- Misma auditoría e idempotencia
+- Sin generalización prematura
+
+#### Payload del Comando
+
+```typescript
+interface IncidentClosePayload {
+    readonly incidentId: IncidentId;  // Requerido
+    readonly notes?: string;           // Opcional
+}
+```
+
+#### Receipt del Comando
+
+```typescript
+interface IncidentCloseReceipt {
+    readonly incidentId: IncidentId;
+    readonly closedAt: number;
+    readonly durationMs: number;
+}
+```
+
+#### Precondiciones Verificadas
+
+| Precondición | Rechazo si falla |
+|--------------|------------------|
+| Usuario autenticado | `UNAUTHORIZED` |
+| Incidente existe | `RESOURCE_NOT_FOUND` |
+| Incidente está OPEN | `INVALID_STATE` |
+
+#### Transición de Estado
+
+```
+Incident.status: OPEN → CLOSED
+```
+
+#### Campos Actualizados en Firestore
+
+| Campo | Descripción |
+|-------|-------------|
+| `status` | Cambia de `'OPEN'` a `'CLOSED'` |
+| `closedAt` | Timestamp del cierre |
+| `closeCommandId` | ID del comando que cerró el incidente |
+| `closeNotes` | Notas de cierre (opcional) |
+
+#### Archivos Creados
+
+| Archivo | Propósito |
+|---------|----------|
+| `src/domain/incidents/commands/close.ts` | Handler completo de incident.close |
+
+#### Archivos Modificados
+
+| Archivo | Cambio |
+|---------|--------|
+| `src/domain/incidents/types.ts` | Agregar IncidentClosePayload, IncidentCloseReceipt, campos de cierre |
+| `src/domain/incidents/store.ts` | Agregar método closeIncident() |
+| `src/domain/incidents/index.ts` | Exportar tipos y handlers de incident.close |
+| `src/commands/pipeline.runner.ts` | Wiring de incident.close en todas las etapas |
+| `DEV_EXECUTION_LOG.md` | Documentación del paso |
+
+#### Garantías Implementadas
+
+| Garantía | Estado |
+|----------|--------|
+| incident.close ejecuta de extremo a extremo | ✅ |
+| Precondiciones verificadas | ✅ |
+| Incidente transiciona a CLOSED | ✅ |
+| Audit record emitido | ✅ |
+| Duplicado retorna resultado cacheado | ✅ |
+
+#### Verificación
+- ✅ `npm run typecheck` pasa sin errores
+- ✅ incident.close ejecuta todas las etapas
+- ✅ Payload validation valida incidentId y notes
+- ✅ Precondition check verifica existencia y estado OPEN
+- ✅ Incident record se actualiza en Firestore
+- ✅ Audit record se emite con duración del incidente
+- ✅ Idempotency funciona (duplicados corto-circuitados)
+
+#### Lo que NO se implementó
+- ❌ Otros comandos de incidentes (incident.reopen, incident.update)
 - ❌ Generalización de handlers
 - ❌ UI
 - ❌ Tests

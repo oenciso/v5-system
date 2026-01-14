@@ -83,6 +83,17 @@ import {
     IncidentCreateExecutionContext
 } from '../domain/incidents';
 
+// Domain command handlers - incident.close
+import {
+    isIncidentCloseCommand,
+    validateIncidentClosePayload,
+    checkIncidentClosePreconditions,
+    executeIncidentClose,
+    persistIncidentClose,
+    emitIncidentCloseAudit,
+    IncidentCloseExecutionContext
+} from '../domain/incidents';
+
 import { ShiftStore } from '../domain/shifts/store';
 import { IncidentStore } from '../domain/incidents/store';
 import { AuditStore } from '../audit/store';
@@ -425,6 +436,12 @@ async function executePayloadValidation<TPayload>(
         ) as unknown as Promise<CommandExecutionContext<TPayload>>;
     }
 
+    if (isIncidentCloseCommand(command)) {
+        return validateIncidentClosePayload(
+            context as unknown as IncidentCloseExecutionContext
+        ) as unknown as Promise<CommandExecutionContext<TPayload>>;
+    }
+
     // Default: no-op placeholder for unimplemented commands
     return {
         ...context,
@@ -474,6 +491,13 @@ async function executePreconditionCheck<TPayload>(
     if (isIncidentCreateCommand(command)) {
         return checkIncidentCreatePreconditions(
             context as unknown as IncidentCreateExecutionContext,
+            { incidentStore: deps.incidentStore }
+        ) as unknown as Promise<CommandExecutionContext<TPayload>>;
+    }
+
+    if (isIncidentCloseCommand(command)) {
+        return checkIncidentClosePreconditions(
+            context as unknown as IncidentCloseExecutionContext,
             { incidentStore: deps.incidentStore }
         ) as unknown as Promise<CommandExecutionContext<TPayload>>;
     }
@@ -528,6 +552,12 @@ async function executeExecution<TPayload>(
         ) as unknown as Promise<CommandExecutionContext<TPayload>>;
     }
 
+    if (isIncidentCloseCommand(command)) {
+        return executeIncidentClose(
+            context as unknown as IncidentCloseExecutionContext
+        ) as unknown as Promise<CommandExecutionContext<TPayload>>;
+    }
+
     // Default: throw for unimplemented commands
     throw new StageNotImplementedError('EXECUTION');
 }
@@ -577,6 +607,13 @@ async function executePersistence<TPayload>(
         ) as unknown as Promise<CommandExecutionContext<TPayload>>;
     }
 
+    if (isIncidentCloseCommand(command)) {
+        return persistIncidentClose(
+            context as unknown as IncidentCloseExecutionContext,
+            { incidentStore: deps.incidentStore }
+        ) as unknown as Promise<CommandExecutionContext<TPayload>>;
+    }
+
     // Default: throw for unimplemented commands
     throw new StageNotImplementedError('PERSISTENCE');
 }
@@ -622,6 +659,13 @@ async function executeAuditEmission<TPayload>(
     if (isIncidentCreateCommand(command)) {
         return emitIncidentCreateAudit(
             context as unknown as IncidentCreateExecutionContext,
+            { auditStore: deps.auditStore }
+        ) as unknown as Promise<CommandExecutionContext<TPayload>>;
+    }
+
+    if (isIncidentCloseCommand(command)) {
+        return emitIncidentCloseAudit(
+            context as unknown as IncidentCloseExecutionContext,
             { auditStore: deps.auditStore }
         ) as unknown as Promise<CommandExecutionContext<TPayload>>;
     }

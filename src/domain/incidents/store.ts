@@ -50,6 +50,20 @@ export interface IncidentStore {
     createIncident(incident: IncidentRecord): Promise<void>;
 
     /**
+     * Close an existing incident.
+     * Updates the incident to CLOSED status with close timestamp and optional notes.
+     */
+    closeIncident(
+        companyId: CompanyId,
+        incidentId: IncidentId,
+        closeData: {
+            closedAt: number;
+            closeCommandId: string;
+            closeNotes?: string;
+        }
+    ): Promise<void>;
+
+    /**
      * Get an incident by ID.
      */
     getIncident(
@@ -77,6 +91,8 @@ interface IncidentDocument {
     createdAt: admin.firestore.Timestamp;
     closedAt?: admin.firestore.Timestamp;
     sourceCommandId: string;
+    closeCommandId?: string;
+    closeNotes?: string;
     evidenceRefs?: string[];
 }
 
@@ -130,6 +146,8 @@ function documentToRecord(doc: IncidentDocument): IncidentRecord {
         ...(doc.description !== undefined && { description: doc.description }),
         ...(doc.location !== undefined && { location: doc.location }),
         ...(doc.closedAt !== undefined && { closedAt: doc.closedAt.toMillis() }),
+        ...(doc.closeCommandId !== undefined && { closeCommandId: doc.closeCommandId }),
+        ...(doc.closeNotes !== undefined && { closeNotes: doc.closeNotes }),
         ...(doc.evidenceRefs !== undefined && doc.evidenceRefs.length > 0 && {
             evidenceRefs: doc.evidenceRefs
         })
@@ -167,6 +185,30 @@ export class FirestoreIncidentStore implements IncidentStore {
         const doc = recordToDocument(incident);
 
         await docRef.set(doc);
+    }
+
+    async closeIncident(
+        companyId: CompanyId,
+        incidentId: IncidentId,
+        closeData: {
+            closedAt: number;
+            closeCommandId: string;
+            closeNotes?: string;
+        }
+    ): Promise<void> {
+        const docRef = this.incidentsCollection(companyId).doc(incidentId);
+
+        const updateData: Partial<IncidentDocument> = {
+            status: 'CLOSED',
+            closedAt: admin.firestore.Timestamp.fromMillis(closeData.closedAt),
+            closeCommandId: closeData.closeCommandId
+        };
+
+        if (closeData.closeNotes !== undefined) {
+            updateData.closeNotes = closeData.closeNotes;
+        }
+
+        await docRef.update(updateData);
     }
 
     async getIncident(
