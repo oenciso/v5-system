@@ -127,9 +127,21 @@ import {
     RondinFinishExecutionContext
 } from '../domain/rondins';
 
+// Domain command handlers - checklist.submit
+import {
+    isChecklistSubmitCommand,
+    validateChecklistSubmitPayload,
+    checkChecklistSubmitPreconditions,
+    executeChecklistSubmit,
+    persistChecklistSubmission,
+    emitChecklistSubmitAudit,
+    ChecklistSubmitExecutionContext
+} from '../domain/checklists';
+
 import { ShiftStore } from '../domain/shifts/store';
 import { IncidentStore } from '../domain/incidents/store';
 import { RondinStore } from '../domain/rondins/store';
+import { ChecklistStore } from '../domain/checklists/store';
 import { AuditStore } from '../audit/store';
 
 // ============================================================================
@@ -199,6 +211,12 @@ export interface PipelineRunnerDependencies {
      * Optional - defaults to FirestoreRondinStore.
      */
     readonly rondinStore?: RondinStore;
+
+    /**
+     * Checklist store for checklist operations.
+     * Optional - defaults to FirestoreChecklistStore.
+     */
+    readonly checklistStore?: ChecklistStore;
 }
 
 // ============================================================================
@@ -500,6 +518,12 @@ async function executePayloadValidation<TPayload>(
         ) as unknown as Promise<CommandExecutionContext<TPayload>>;
     }
 
+    if (isChecklistSubmitCommand(command)) {
+        return validateChecklistSubmitPayload(
+            context as unknown as ChecklistSubmitExecutionContext
+        ) as unknown as Promise<CommandExecutionContext<TPayload>>;
+    }
+
     // Default: no-op placeholder for unimplemented commands
     return {
         ...context,
@@ -581,6 +605,13 @@ async function executePreconditionCheck<TPayload>(
         ) as unknown as Promise<CommandExecutionContext<TPayload>>;
     }
 
+    if (isChecklistSubmitCommand(command)) {
+        return checkChecklistSubmitPreconditions(
+            context as unknown as ChecklistSubmitExecutionContext,
+            { checklistStore: deps.checklistStore }
+        ) as unknown as Promise<CommandExecutionContext<TPayload>>;
+    }
+
     // Default: no-op placeholder for unimplemented commands
     return {
         ...context,
@@ -652,6 +683,12 @@ async function executeExecution<TPayload>(
     if (isRondinFinishCommand(command)) {
         return executeRondinFinish(
             context as unknown as RondinFinishExecutionContext
+        ) as unknown as Promise<CommandExecutionContext<TPayload>>;
+    }
+
+    if (isChecklistSubmitCommand(command)) {
+        return executeChecklistSubmit(
+            context as unknown as ChecklistSubmitExecutionContext
         ) as unknown as Promise<CommandExecutionContext<TPayload>>;
     }
 
@@ -732,6 +769,13 @@ async function executePersistence<TPayload>(
         ) as unknown as Promise<CommandExecutionContext<TPayload>>;
     }
 
+    if (isChecklistSubmitCommand(command)) {
+        return persistChecklistSubmission(
+            context as unknown as ChecklistSubmitExecutionContext,
+            { checklistStore: deps.checklistStore }
+        ) as unknown as Promise<CommandExecutionContext<TPayload>>;
+    }
+
     // Default: throw for unimplemented commands
     throw new StageNotImplementedError('PERSISTENCE');
 }
@@ -805,6 +849,13 @@ async function executeAuditEmission<TPayload>(
     if (isRondinFinishCommand(command)) {
         return emitRondinFinishAudit(
             context as unknown as RondinFinishExecutionContext,
+            { auditStore: deps.auditStore }
+        ) as unknown as Promise<CommandExecutionContext<TPayload>>;
+    }
+
+    if (isChecklistSubmitCommand(command)) {
+        return emitChecklistSubmitAudit(
+            context as unknown as ChecklistSubmitExecutionContext,
             { auditStore: deps.auditStore }
         ) as unknown as Promise<CommandExecutionContext<TPayload>>;
     }

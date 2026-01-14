@@ -108,7 +108,7 @@ La Fase 3 implementará:
 
 ### Estado
 - **Fase:** 3 - Infraestructura de Comandos
-- **Paso Actual:** 12 - Tercer Comando de Rondines (rondin.finish)
+- **Paso Actual:** 13 - Primer Comando de Checklists (checklist.submit)
 - **Estado:** COMPLETADO ✅
 - **Rama:** `phase-3-domain-commands`
 
@@ -1396,6 +1396,136 @@ Rondin.status: ACTIVE → FINISHED
 #### Lo que NO se implementó
 - ❌ Validación de secuencia de checkpoints
 - ❌ Requerimiento mínimo de checkpoints
+- ❌ Generalización de handlers
+- ❌ UI
+- ❌ Tests
+
+---
+
+### Paso 13: Primer Comando de Checklists (checklist.submit) — COMPLETADO ✅
+- **Objetivo:** Implementar primer comando del nuevo agregado Checklist.
+- **Fecha:** 2026-01-14
+- **Fuente:** Patrón de incident.create aplicado a checklists
+
+#### Comando Implementado
+
+**`checklist.submit`** - Enviar un checklist completado
+
+#### Nuevo Agregado de Dominio
+
+Este comando introduce un nuevo agregado:
+- **ChecklistSubmissionRecord** - Registro de submission de checklist
+- Submission inmutable (una vez enviado, no se modifica)
+- Contiene respuestas a las preguntas del checklist
+
+#### Estructura de Firestore
+
+```
+companies/{companyId}/checklistSubmissions/{submissionId}
+├── submissionId: string
+├── checklistId: string
+├── companyId: string
+├── userId: string
+├── status: 'SUBMITTED'
+├── answers: [
+│   ├── questionId: string
+│   ├── value: any
+│   └── notes?: string
+│   ]
+├── submittedAt: Timestamp
+├── notes?: string
+└── sourceCommandId: string
+```
+
+#### Payload del Comando
+
+```typescript
+interface ChecklistSubmitPayload {
+    readonly checklistId: ChecklistId;       // Requerido
+    readonly answers: readonly ChecklistAnswer[];  // Requerido, no vacío
+    readonly notes?: string;                 // Opcional
+}
+
+interface ChecklistAnswer {
+    readonly questionId: string;
+    readonly value: unknown;
+    readonly notes?: string;
+}
+```
+
+#### Receipt del Comando
+
+```typescript
+interface ChecklistSubmitReceipt {
+    readonly submissionId: ChecklistSubmissionId;
+    readonly checklistId: ChecklistId;
+    readonly submittedAt: number;
+    readonly answerCount: number;
+}
+```
+
+#### Validación de Payload
+
+| Campo | Regla |
+|-------|-------|
+| checklistId | Requerido, string no vacío |
+| answers | Requerido, array no vacío |
+| answers[n].questionId | Requerido, string no vacío |
+| answers[n].value | Requerido (puede ser cualquier tipo) |
+| answers[n].notes | Opcional, string si presente |
+| notes | Opcional, string si presente |
+
+#### Precondiciones Verificadas
+
+| Precondición | Rechazo si falla |
+|--------------|------------------|
+| Usuario autenticado | `UNAUTHORIZED` |
+
+*Nota: No hay precondiciones de dominio adicionales para la creación. La validación del template del checklist podría agregarse en el futuro.*
+
+#### Transición de Estado
+
+```
+ChecklistSubmission.status: ∅ → SUBMITTED
+```
+
+#### Archivos Creados
+
+| Archivo | Propósito |
+|---------|----------|
+| `src/domain/checklists/types.ts` | Tipos de dominio para checklists |
+| `src/domain/checklists/store.ts` | Persistencia Firestore de submissions |
+| `src/domain/checklists/commands/submit.ts` | Handler completo de checklist.submit |
+| `src/domain/checklists/index.ts` | Exportaciones del módulo |
+
+#### Archivos Modificados
+
+| Archivo | Cambio |
+|---------|--------|
+| `src/commands/pipeline.runner.ts` | Agregar checklistStore a deps, wiring de checklist.submit |
+| `DEV_EXECUTION_LOG.md` | Documentación del paso |
+
+#### Garantías Implementadas
+
+| Garantía | Estado |
+|----------|--------|
+| checklist.submit ejecuta de extremo a extremo | ✅ |
+| Submission es inmutable | ✅ |
+| Audit record emitido | ✅ |
+| Idempotency funciona | ✅ |
+
+#### Verificación
+- ✅ `npm run typecheck` pasa sin errores
+- ✅ checklist.submit ejecuta todas las etapas
+- ✅ Payload validation valida checklistId, answers, notes
+- ✅ Cada answer se valida individualmente
+- ✅ Submission record se persiste en Firestore
+- ✅ Audit record se emite con metadata de submission
+- ✅ Idempotency funciona (duplicados corto-circuitados)
+
+#### Lo que NO se implementó
+- ❌ Validación contra template del checklist
+- ❌ checklist.createTemplate
 - ❌ Generalización de handlers
 - ❌ UI
 - ❌ Tests

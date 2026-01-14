@@ -1,13 +1,18 @@
 # SISTEMA_UI_CANONICO
 
 ## 1. Autoridad del documento
+
 Este documento es **canónico y vinculante** para todo el sistema.
 
-Cualquier UI (Web o Android) **debe cumplir estas reglas**.
+Cualquier UI (Web o Android) **debe cumplir estas reglas**.  
 Si existe conflicto entre implementación y este documento, **este documento manda**.
 
-No describe pantallas.
+No describe pantallas.  
 Describe **reglas, contratos y componentes obligatorios**.
+
+> **Regla de autoridad absoluta**  
+> La UI **nunca debe inferir permisos, estados ni decisiones** que no hayan sido confirmadas explícitamente por el backend.  
+> Si el backend no lo ha confirmado, la UI **no puede asumirlo ni simularlo**.
 
 ---
 
@@ -22,7 +27,7 @@ Describe **reglas, contratos y componentes obligatorios**.
 4. Nunca se ocultan errores.
 5. Nunca se pide confirmación para compensar validación débil de backend.
 6. El sistema debe ser usable con **conectividad pobre o nula**.
-7. La UI **no decide negocio**.
+7. La UI **no decide negocio ni seguridad**.
 
 ---
 
@@ -32,7 +37,7 @@ Describe **reglas, contratos y componentes obligatorios**.
 
 ### 3.1 Colores base (Web)
 
-- Navigation / Sidebar: `#0B1C2D` (Azul marino oscuro)
+- Navigation / Sidebar: `#0B1C2D`
 - Background principal: `#F8FAFC`
 - Card background: `#FFFFFF`
 
@@ -63,6 +68,7 @@ Nunca se usan colores fuera de estos significados.
 - Header sin lógica de negocio.
 - El contenido siempre vive dentro de Cards o Tables.
 - No contenido flotante.
+- Ningún layout puede ocultar estados críticos.
 
 ---
 
@@ -105,68 +111,43 @@ Componentes obligatorios:
 - `PrimaryButton`
 - `SecondaryButton`
 - `DangerButton`
-- `StatusBadge` (accepted | pending | rejected)
+- `StatusBadge`
 - `OfflineBanner`
 - `ErrorInline`
 - `EmptyState`
 - `PageHeader`
 - `SidebarNavItem`
 
-Si un componente no existe aquí, **no se usa en páginas**.
-
 ---
 
 ## 7. Estados y feedback
 
-### 7.1 Acciones
-
-- Toda acción pasa por:
-  - idle → pending → accepted / rejected
-
+- Toda acción pasa por: idle → pending → accepted / rejected
 - Nunca hay spinners infinitos.
 - El backend confirma el resultado.
-
-### 7.2 Errores
-
-- Los errores se muestran **por código**, no por texto libre.
-- El texto es informativo, no técnico.
+- La UI no adelanta estados.
 
 ---
 
 ## 8. Reglas Android
 
-Android **no replica el layout web**.
+Android no replica el layout web.
 
-Comparte:
-- Estados
-- Colores semánticos
-- Comportamiento
-
-No comparte:
-- Sidebar
-- Densidad
-- Layout
-
-Android se define en documento separado.
+Comparte estados, colores y comportamiento.
+No comparte layout.
 
 ---
 
 ## 9. Prohibiciones explícitas
 
-- No estilos rápidos por urgencia.
+- No estilos rápidos.
 - No lógica de negocio en UI.
-- No uso directo de shadcn en páginas.
-- No componentes sin estado explícito.
+- No inferencia de permisos.
+- No uso directo de shadcn.
+- No simulación de éxito.
 
 ---
 
 ## 10. Cierre
 
-Este documento existe para:
-
-- Evitar divergencia visual
-- Evitar UX frágil
-- Permitir cambios futuros baratos
-
-Cualquier excepción debe documentarse y aprobarse explícitamente.
-
+Este documento existe para proteger la estabilidad del sistema en producción real.
