@@ -34,10 +34,11 @@ import {
     RejectionCode
 } from './contracts';
 import {
-    IdempotencyCheckResult,
-    IdempotencyNew,
-    isNewCommand
+    isNewCommand,
+    isCached,
+    isInFlight
 } from './idempotency';
+import { IdempotencyStore, getIdempotencyStore } from './idempotency.store';
 import {
     PipelineStage,
     PIPELINE_STAGE_ORDER,
@@ -86,26 +87,23 @@ export interface PipelineRunnerDependencies {
      * In production, this comes from the HTTP request.
      */
     readonly requestContext: RequestContext;
+
+    /**
+     * Idempotency store for duplicate detection.
+     * Optional - defaults to FirestoreIdempotencyStore.
+     */
+    readonly idempotencyStore?: IdempotencyStore;
 }
 
 // ============================================================================
-// IDEMPOTENCY CHECKER (STUB)
+// IDEMPOTENCY HELPERS
 // ============================================================================
 
 /**
- * Stub idempotency checker.
- * 
- * Always returns "new command" - no actual storage check.
- * In production, this would check Firestore.
- * 
- * @param _command - Command to check (unused in stub)
- * @returns IdempotencyNew indicating command should be processed
+ * Get the idempotency store from dependencies or use default.
  */
-function stubIdempotencyCheck(_command: DomainCommand): IdempotencyCheckResult {
-    const result: IdempotencyNew = {
-        behavior: 'CREATE_AND_PROCESS'
-    };
-    return result;
+function getStore(deps: PipelineRunnerDependencies): IdempotencyStore {
+    return deps.idempotencyStore ?? getIdempotencyStore();
 }
 
 // ============================================================================
@@ -229,10 +227,12 @@ async function executeAuthorization<TPayload>(
 /**
  * Execute IDEMPOTENCY_CHECK stage.
  * 
- * Checks if command was already processed (stub - always new).
+ * Checks if command was already processed using Firestore.
+ * Creates PENDING record for new commands.
  */
 async function executeIdempotencyCheck<TPayload>(
-    context: CommandExecutionContext<TPayload>
+    context: CommandExecutionContext<TPayload>,
+    deps: PipelineRunnerDependencies
 ): Promise<CommandExecutionContext<TPayload>> {
     if (!context.command) {
         const failure = createPipelineFailure(
@@ -243,14 +243,28 @@ async function executeIdempotencyCheck<TPayload>(
         return { ...context, currentStage: 'IDEMPOTENCY_CHECK', failure };
     }
 
-    const idempotencyResult = stubIdempotencyCheck(context.command);
+    // Need authenticated identity to get companyId
+    if (!context.identity || context.identity.kind !== 'authenticated') {
+        const failure = createPipelineFailure(
+            'IDEMPOTENCY_CHECK',
+            'INTERNAL_ERROR',
+            'Idempotency check requires authenticated identity'
+        );
+        return { ...context, currentStage: 'IDEMPOTENCY_CHECK', failure };
+    }
 
-    // If not new command, would reject here
-    if (!isNewCommand(idempotencyResult)) {
+    const store = getStore(deps);
+    const { commandId, companyId } = context.command;
+
+    // Check if command was already processed
+    const idempotencyResult = await store.checkIdempotency(companyId, commandId);
+
+    // Case 1: Command is in-flight (PENDING, not timed out)
+    if (isInFlight(idempotencyResult)) {
         const failure = createPipelineFailure(
             'IDEMPOTENCY_CHECK',
             'DUPLICATE_COMMAND',
-            'Command already processed or in-flight'
+            'Command is currently being processed'
         );
         return {
             ...context,
@@ -258,6 +272,54 @@ async function executeIdempotencyCheck<TPayload>(
             idempotencyResult,
             failure
         };
+    }
+
+    // Case 2: Command was already processed (cached result)
+    if (isCached(idempotencyResult)) {
+        // Return cached result without re-processing
+        const cachedRecord = idempotencyResult.record;
+        const rejectionCode = cachedRecord.status === 'ACCEPTED'
+            ? undefined
+            : cachedRecord.resultCode;
+
+        if (cachedRecord.status === 'REJECTED' && rejectionCode) {
+            const failure = createPipelineFailure(
+                'IDEMPOTENCY_CHECK',
+                rejectionCode as any,
+                'Command was previously rejected (cached)'
+            );
+            return {
+                ...context,
+                currentStage: 'IDEMPOTENCY_CHECK',
+                idempotencyResult,
+                failure
+            };
+        }
+
+        // For ACCEPTED, we still need to short-circuit but not fail
+        // The behavior for this will be refined when we implement full execution
+        // For now, since EXECUTION is stubbed, we return the cached result as success
+        // by NOT setting failure (the pipeline will continue and fail at EXECUTION stub)
+    }
+
+    // Case 3: New command - create PENDING record
+    if (isNewCommand(idempotencyResult)) {
+        const created = await store.createPendingRecord(companyId, commandId);
+
+        if (!created) {
+            // Race condition - another process created the record
+            const failure = createPipelineFailure(
+                'IDEMPOTENCY_CHECK',
+                'DUPLICATE_COMMAND',
+                'Command race condition detected'
+            );
+            return {
+                ...context,
+                currentStage: 'IDEMPOTENCY_CHECK',
+                idempotencyResult,
+                failure
+            };
+        }
     }
 
     return {
@@ -366,7 +428,7 @@ async function dispatchStage<TPayload>(
             return executeAuthorization(context, deps);
 
         case 'IDEMPOTENCY_CHECK':
-            return executeIdempotencyCheck(context);
+            return executeIdempotencyCheck(context, deps);
 
         case 'PAYLOAD_VALIDATION':
             return executePayloadValidation(context);

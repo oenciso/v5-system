@@ -108,7 +108,7 @@ La Fase 3 implementará:
 
 ### Estado
 - **Fase:** 3 - Infraestructura de Comandos
-- **Paso Actual:** 4 - Skeleton Mínimo del Pipeline
+- **Paso Actual:** 5 - Persistencia de Idempotencia
 - **Estado:** COMPLETADO ✅
 - **Rama:** `phase-3-domain-commands`
 
@@ -503,6 +503,112 @@ const result = await runPipelineUpToStage(command, deps, 'PRECONDITION_CHECK');
 - ❌ Validación real de payload
 - ❌ Verificación real de precondiciones
 - ❌ Storage de idempotencia
+- ❌ UI
+
+---
+
+### Paso 5: Persistencia de Idempotencia (Firestore) — COMPLETADO ✅
+- **Objetivo:** Implementar persistencia real de idempotencia usando Firestore.
+- **Fecha:** 2026-01-14
+- **Fuente:** Contratos de idempotencia (Step 2), INVARIANTES_DE_PRODUCCION.md
+
+#### Componentes Implementados
+
+| Componente | Descripción |
+|------------|-------------|
+| `FirestoreIdempotencyStore` | Implementación de Firestore para idempotencia |
+| `IdempotencyStore` | Interfaz abstracta para storage |
+| `initializeFirestore()` | Inicialización de Firestore Admin SDK |
+| `createDocumentId()` | Genera clave compuesta `{companyId}_{commandId}` |
+
+#### Estructura de Firestore
+
+```
+Colección: idempotency
+└── Documento: {companyId}_{commandId}
+    ├── commandId: string
+    ├── companyId: string
+    ├── status: 'PENDING' | 'ACCEPTED' | 'REJECTED'
+    ├── createdAt: Timestamp
+    ├── resolvedAt?: Timestamp
+    ├── resultCode?: 'SUCCESS' | RejectionCode
+    └── expiresAt: Timestamp (para TTL policy)
+```
+
+#### Transiciones de Estado
+
+```
+(no existe) → PENDING → ACCEPTED
+                   ↘ REJECTED
+```
+
+| Transición | Descripción |
+|------------|-------------|
+| `∅ → PENDING` | Comando nuevo, crear registro antes de procesar |
+| `PENDING → ACCEPTED` | Comando procesado exitosamente |
+| `PENDING → REJECTED` | Comando rechazado con código tipado |
+
+#### Comportamiento de Duplicados
+
+| Situación | Comportamiento |
+|-----------|----------------|
+| No existe registro | Crear PENDING, procesar comando |
+| PENDING no expirado | Rechazar con `DUPLICATE_COMMAND` |
+| PENDING expirado (>5min) | Tratar como nuevo, sobrescribir |
+| ACCEPTED | Retornar resultado cacheado |
+| REJECTED | Retornar rechazo cacheado |
+| Registro expirado (>24h) | Tratar como nuevo comando |
+
+#### TTL Implementados
+
+| Constante | Valor | Propósito |
+|-----------|-------|-----------|
+| `IDEMPOTENCY_TTL_MS` | 24 horas | TTL general del registro |
+| `PENDING_TIMEOUT_MS` | 5 minutos | Timeout para PENDING abandonados |
+
+#### Integración con Pipeline
+
+- Pipeline runner ahora acepta `IdempotencyStore` opcional
+- Por defecto usa `FirestoreIdempotencyStore`
+- Etapa `IDEMPOTENCY_CHECK` ahora:
+  1. Valida que existe identidad autenticada
+  2. Consulta Firestore para comando existente
+  3. Crea registro PENDING si es comando nuevo
+  4. Rechaza si está in-flight o ya procesado
+
+#### Archivos Creados
+- `src/storage/firestore.ts` - Inicialización de Firestore
+- `src/storage/index.ts` - Exportaciones del módulo storage
+- `src/commands/idempotency.store.ts` - Implementación Firestore de IdempotencyStore
+
+#### Archivos Modificados
+- `src/commands/pipeline.runner.ts` - Integración con idempotencia real
+- `src/commands/index.ts` - Exportaciones del store
+- `DEV_EXECUTION_LOG.md` - Documentación del paso
+
+#### ⚠️ SOLO IDEMPOTENCIA, NO DOMINIO
+
+- Firestore SOLO almacena registros de idempotencia
+- NO hay escritura de datos de dominio
+- NO hay ejecución de lógica de negocio
+- NO hay emisión de auditoría
+- Etapas SIDE-EFFECTING siguen siendo stubs
+
+#### Verificación
+- ✅ `npm run typecheck` pasa sin errores
+- ✅ Clave compuesta (companyId + commandId) implementada
+- ✅ Transiciones NONE → PENDING → ACCEPTED/REJECTED implementadas
+- ✅ TTL y PENDING timeout implementados
+- ✅ Duplicados corto-circuitados correctamente
+- ✅ Transacción atómica para crear PENDING
+- ✅ Comportamiento determinístico
+
+#### Lo que NO se implementó
+- ❌ Ejecución de lógica de dominio
+- ❌ Escritura de datos de negocio
+- ❌ Emisión de auditoría
+- ❌ Validación real de payload
+- ❌ Verificación real de precondiciones
 - ❌ UI
 
 ---

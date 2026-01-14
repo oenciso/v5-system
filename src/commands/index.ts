@@ -102,3 +102,17 @@ export {
     getLastPureStage,
     didPureStagesComplete
 } from './pipeline.runner';
+
+// Idempotency store (PASO 5)
+export type {
+    IdempotencyStore
+} from './idempotency.store';
+
+export {
+    IDEMPOTENCY_COLLECTION,
+    createDocumentId,
+    FirestoreIdempotencyStore,
+    createIdempotencyStore,
+    getIdempotencyStore,
+    resetIdempotencyStore
+} from './idempotency.store';
