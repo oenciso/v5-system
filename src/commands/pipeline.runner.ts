@@ -50,6 +50,19 @@ import {
     createPipelineFailure
 } from './pipeline';
 
+// Domain command handlers
+import {
+    isShiftOpenCommand,
+    validateShiftOpenPayload,
+    checkShiftOpenPreconditions,
+    executeShiftOpen,
+    persistShift,
+    emitShiftOpenAudit,
+    ShiftOpenExecutionContext
+} from '../domain/shifts';
+import { ShiftStore } from '../domain/shifts/store';
+import { AuditStore } from '../audit/store';
+
 // ============================================================================
 // ERROR TYPES
 // ============================================================================
@@ -93,6 +106,18 @@ export interface PipelineRunnerDependencies {
      * Optional - defaults to FirestoreIdempotencyStore.
      */
     readonly idempotencyStore?: IdempotencyStore;
+
+    /**
+     * Shift store for shift operations.
+     * Optional - defaults to FirestoreShiftStore.
+     */
+    readonly shiftStore?: ShiftStore;
+
+    /**
+     * Audit store for audit records.
+     * Optional - defaults to FirestoreAuditStore.
+     */
+    readonly auditStore?: AuditStore;
 }
 
 // ============================================================================
@@ -332,14 +357,32 @@ async function executeIdempotencyCheck<TPayload>(
 /**
  * Execute PAYLOAD_VALIDATION stage.
  * 
- * Validates command payload. Currently a no-op (assumes valid).
- * Future: validate against command-specific schema.
+ * For shift.open: validates payload using command-specific validator.
+ * For other commands: no-op (assumes valid).
  */
 async function executePayloadValidation<TPayload>(
-    context: CommandExecutionContext<TPayload>
+    context: CommandExecutionContext<TPayload>,
+    _deps: PipelineRunnerDependencies
 ): Promise<CommandExecutionContext<TPayload>> {
-    // No-op placeholder: assume payload is valid
-    // Future: validate command.payload against schema for command.commandType
+    const command = context.command;
+
+    if (!command) {
+        const failure = createPipelineFailure(
+            'PAYLOAD_VALIDATION',
+            'INTERNAL_ERROR',
+            'Command not found in context'
+        );
+        return { ...context, currentStage: 'PAYLOAD_VALIDATION', failure };
+    }
+
+    // Route to command-specific validator
+    if (isShiftOpenCommand(command)) {
+        return validateShiftOpenPayload(
+            context as unknown as ShiftOpenExecutionContext
+        ) as unknown as Promise<CommandExecutionContext<TPayload>>;
+    }
+
+    // Default: no-op placeholder for unimplemented commands
     return {
         ...context,
         currentStage: 'PAYLOAD_VALIDATION',
@@ -350,14 +393,33 @@ async function executePayloadValidation<TPayload>(
 /**
  * Execute PRECONDITION_CHECK stage.
  * 
- * Verifies business preconditions. Currently a no-op (assumes met).
- * Future: check domain state (e.g., shift open for incident).
+ * For shift.open: checks user has no active shift.
+ * For other commands: no-op (assumes met).
  */
 async function executePreconditionCheck<TPayload>(
-    context: CommandExecutionContext<TPayload>
+    context: CommandExecutionContext<TPayload>,
+    deps: PipelineRunnerDependencies
 ): Promise<CommandExecutionContext<TPayload>> {
-    // No-op placeholder: assume preconditions met
-    // Future: check business state from Firestore
+    const command = context.command;
+
+    if (!command) {
+        const failure = createPipelineFailure(
+            'PRECONDITION_CHECK',
+            'INTERNAL_ERROR',
+            'Command not found in context'
+        );
+        return { ...context, currentStage: 'PRECONDITION_CHECK', failure };
+    }
+
+    // Route to command-specific precondition checker
+    if (isShiftOpenCommand(command)) {
+        return checkShiftOpenPreconditions(
+            context as unknown as ShiftOpenExecutionContext,
+            { shiftStore: deps.shiftStore }
+        ) as unknown as Promise<CommandExecutionContext<TPayload>>;
+    }
+
+    // Default: no-op placeholder for unimplemented commands
     return {
         ...context,
         currentStage: 'PRECONDITION_CHECK',
@@ -366,35 +428,100 @@ async function executePreconditionCheck<TPayload>(
 }
 
 /**
- * Execute EXECUTION stage (STUB).
+ * Execute EXECUTION stage.
  * 
- * Would execute domain logic. NOT IMPLEMENTED.
+ * For shift.open: creates shift record.
+ * For other commands: throws NOT_IMPLEMENTED.
  */
 async function executeExecution<TPayload>(
-    _context: CommandExecutionContext<TPayload>
+    context: CommandExecutionContext<TPayload>,
+    _deps: PipelineRunnerDependencies
 ): Promise<CommandExecutionContext<TPayload>> {
+    const command = context.command;
+
+    if (!command) {
+        const failure = createPipelineFailure(
+            'EXECUTION',
+            'INTERNAL_ERROR',
+            'Command not found in context'
+        );
+        return { ...context, currentStage: 'EXECUTION', failure };
+    }
+
+    // Route to command-specific executor
+    if (isShiftOpenCommand(command)) {
+        return executeShiftOpen(
+            context as unknown as ShiftOpenExecutionContext
+        ) as unknown as Promise<CommandExecutionContext<TPayload>>;
+    }
+
+    // Default: throw for unimplemented commands
     throw new StageNotImplementedError('EXECUTION');
 }
 
 /**
- * Execute PERSISTENCE stage (STUB).
+ * Execute PERSISTENCE stage.
  * 
- * Would persist to Firestore. NOT IMPLEMENTED.
+ * For shift.open: persists shift to Firestore.
+ * For other commands: throws NOT_IMPLEMENTED.
  */
 async function executePersistence<TPayload>(
-    _context: CommandExecutionContext<TPayload>
+    context: CommandExecutionContext<TPayload>,
+    deps: PipelineRunnerDependencies
 ): Promise<CommandExecutionContext<TPayload>> {
+    const command = context.command;
+
+    if (!command) {
+        const failure = createPipelineFailure(
+            'PERSISTENCE',
+            'INTERNAL_ERROR',
+            'Command not found in context'
+        );
+        return { ...context, currentStage: 'PERSISTENCE', failure };
+    }
+
+    // Route to command-specific persister
+    if (isShiftOpenCommand(command)) {
+        return persistShift(
+            context as unknown as ShiftOpenExecutionContext,
+            { shiftStore: deps.shiftStore }
+        ) as unknown as Promise<CommandExecutionContext<TPayload>>;
+    }
+
+    // Default: throw for unimplemented commands
     throw new StageNotImplementedError('PERSISTENCE');
 }
 
 /**
- * Execute AUDIT_EMISSION stage (STUB).
+ * Execute AUDIT_EMISSION stage.
  * 
- * Would emit audit event. NOT IMPLEMENTED.
+ * For shift.open: emits audit record.
+ * For other commands: throws NOT_IMPLEMENTED.
  */
 async function executeAuditEmission<TPayload>(
-    _context: CommandExecutionContext<TPayload>
+    context: CommandExecutionContext<TPayload>,
+    deps: PipelineRunnerDependencies
 ): Promise<CommandExecutionContext<TPayload>> {
+    const command = context.command;
+
+    if (!command) {
+        const failure = createPipelineFailure(
+            'AUDIT_EMISSION',
+            'INTERNAL_ERROR',
+            'Command not found in context'
+        );
+        return { ...context, currentStage: 'AUDIT_EMISSION', failure };
+    }
+
+    // Route to command-specific audit emitter
+    if (isShiftOpenCommand(command)) {
+        return emitShiftOpenAudit(
+            context as unknown as ShiftOpenExecutionContext,
+            { auditStore: deps.auditStore }
+        ) as unknown as Promise<CommandExecutionContext<TPayload>>;
+    }
+
+    // Default: throw for unimplemented commands
     throw new StageNotImplementedError('AUDIT_EMISSION');
 }
 
@@ -431,19 +558,19 @@ async function dispatchStage<TPayload>(
             return executeIdempotencyCheck(context, deps);
 
         case 'PAYLOAD_VALIDATION':
-            return executePayloadValidation(context);
+            return executePayloadValidation(context, deps);
 
         case 'PRECONDITION_CHECK':
-            return executePreconditionCheck(context);
+            return executePreconditionCheck(context, deps);
 
         case 'EXECUTION':
-            return executeExecution(context);
+            return executeExecution(context, deps);
 
         case 'PERSISTENCE':
-            return executePersistence(context);
+            return executePersistence(context, deps);
 
         case 'AUDIT_EMISSION':
-            return executeAuditEmission(context);
+            return executeAuditEmission(context, deps);
 
         default: {
             // Exhaustiveness check
@@ -567,14 +694,28 @@ export async function runCommandPipeline<TPayload, TReceipt = unknown>(
         }
     }
 
-    // All stages completed (should not happen with current stubs)
-    // This would be success in a full implementation
+    // All stages completed - success!
+    // Extract receipt from context if available (command-specific)
+    const contextWithReceipt = context as CommandExecutionContext<TPayload> & { receipt?: TReceipt };
+    const receipt = contextWithReceipt.receipt ?? ({} as TReceipt);
+
     const successResult: CommandResult<TReceipt> = {
         status: 'accepted',
         commandId: command.commandId,
         serverTimestamp: Date.now(),
-        receipt: {} as TReceipt // Placeholder
+        receipt
     };
+
+    // Mark idempotency as ACCEPTED
+    const store = getStore(deps);
+    if (context.identity && context.identity.kind === 'authenticated') {
+        try {
+            await store.markAccepted(command.companyId, command.commandId);
+        } catch (error) {
+            // Log but don't fail - command already succeeded
+            console.error('Failed to mark idempotency as accepted:', error);
+        }
+    }
 
     const success: PipelineSuccess<TPayload, TReceipt> = {
         outcome: 'SUCCESS',

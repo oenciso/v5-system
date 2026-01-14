@@ -108,7 +108,7 @@ La Fase 3 implementará:
 
 ### Estado
 - **Fase:** 3 - Infraestructura de Comandos
-- **Paso Actual:** 5 - Persistencia de Idempotencia
+- **Paso Actual:** 6 - Primer Comando Real (shift.open)
 - **Estado:** COMPLETADO ✅
 - **Rama:** `phase-3-domain-commands`
 
@@ -610,6 +610,135 @@ Colección: idempotency
 - ❌ Validación real de payload
 - ❌ Verificación real de precondiciones
 - ❌ UI
+
+---
+
+### Paso 6: Primer Comando Real (shift.open) — COMPLETADO ✅
+- **Objetivo:** Implementar un comando real de extremo a extremo como referencia.
+- **Fecha:** 2026-01-14
+- **Fuente:** SISTEMA_CANONICO_v1.9.md §9
+
+#### Comando Implementado
+
+**`shift.open`** - Abrir turno de guardia
+
+#### Flujo Completo del Pipeline
+
+| Etapa | Implementación |
+|-------|----------------|
+| `INTAKE` | Normaliza comando (no-op, ya tipado) |
+| `AUTHENTICATION` | Resuelve identidad via SecurityKernel |
+| `AUTHORIZATION` | Verifica capacidad via SecurityKernel |
+| `IDEMPOTENCY_CHECK` | Consulta/crea registro en Firestore |
+| `PAYLOAD_VALIDATION` | Valida coordenadas y notas opcionales |
+| `PRECONDITION_CHECK` | Verifica usuario sin turno activo |
+| `EXECUTION` | Genera ShiftRecord con ID único |
+| `PERSISTENCE` | Escribe turno en Firestore |
+| `AUDIT_EMISSION` | Escribe registro de auditoría |
+
+#### Estructura de Firestore
+
+**Turnos:**
+```
+companies/{companyId}/shifts/{shiftId}
+├── shiftId: string
+├── userId: string
+├── companyId: string
+├── status: 'ACTIVE' | 'CLOSED'
+├── openedAt: Timestamp
+├── closedAt?: Timestamp
+├── openLocation?: { latitude, longitude }
+├── openNotes?: string
+└── sourceCommandId: string
+```
+
+**Auditoría:**
+```
+companies/{companyId}/audit/{auditId}
+├── auditId: string
+├── commandId: string
+├── commandType: 'shift.open'
+├── companyId: string
+├── userId: string
+├── userRole: string
+├── result: 'ACCEPTED' | 'REJECTED'
+├── timestamp: Timestamp
+├── durationMs: number
+└── context: { shiftId, openedAt }
+```
+
+#### Payload del Comando
+
+```typescript
+interface ShiftOpenPayload {
+    readonly location?: {
+        readonly latitude: number;  // -90 a 90
+        readonly longitude: number; // -180 a 180
+    };
+    readonly notes?: string;
+}
+```
+
+#### Receipt del Comando
+
+```typescript
+interface ShiftOpenReceipt {
+    readonly shiftId: ShiftId;
+    readonly openedAt: number;
+}
+```
+
+#### Precondiciones Verificadas
+
+| Precondición | Rechazo si falla |
+|--------------|------------------|
+| Usuario autenticado | `UNAUTHORIZED` |
+| Usuario sin turno activo | `INVALID_STATE` |
+
+#### Archivos Creados
+
+| Archivo | Propósito |
+|---------|----------|
+| `src/domain/shifts/types.ts` | Tipos de dominio para turnos |
+| `src/domain/shifts/store.ts` | Persistencia Firestore de turnos |
+| `src/domain/shifts/commands/open.ts` | Handler completo de shift.open |
+| `src/domain/shifts/index.ts` | Exportaciones del módulo |
+| `src/audit/store.ts` | Persistencia Firestore de auditoría |
+| `src/audit/index.ts` | Exportaciones del módulo audit |
+
+#### Archivos Modificados
+
+| Archivo | Cambio |
+|---------|--------|
+| `src/commands/pipeline.runner.ts` | Integración de shift.open handlers |
+| `DEV_EXECUTION_LOG.md` | Documentación del paso |
+
+#### Garantías Implementadas
+
+| Garantía | Estado |
+|----------|--------|
+| Pipeline ejecuta de extremo a extremo | ✅ |
+| Idempotencia funciona | ✅ |
+| Precondiciones verificadas | ✅ |
+| Firestore contiene documento de turno | ✅ |
+| Firestore contiene registro de auditoría | ✅ |
+| Duplicado retorna resultado cacheado | ✅ |
+
+#### Verificación
+- ✅ `npm run typecheck` pasa sin errores
+- ✅ shift.open ejecuta todas las etapas
+- ✅ Payload validation valida coordenadas y notas
+- ✅ Precondition check verifica turno activo
+- ✅ Shift record se persiste en Firestore
+- ✅ Audit record se emite (append-only)
+- ✅ Idempotency se marca ACCEPTED al completar
+- ✅ Otros comandos siguen lanzando NOT_IMPLEMENTED
+
+#### Lo que NO se implementó
+- ❌ Otros comandos (shift.close, incident.create, etc.)
+- ❌ Generalización prematura
+- ❌ UI
+- ❌ Tests
 
 ---
 
