@@ -2,7 +2,7 @@
  * @fileoverview Rondins Domain Module Public API
  * @module domain/rondins
  * 
- * FASE 3 - PASO 10 & 11
+ * FASE 3 - PASO 10, 11 & 12
  */
 
 // Types
@@ -18,7 +18,9 @@ export type {
     CheckpointId,
     RondinCheckpointRecord,
     RondinRecordCheckpointPayload,
-    RondinRecordCheckpointReceipt
+    RondinRecordCheckpointReceipt,
+    RondinFinishPayload,
+    RondinFinishReceipt
 } from './types';
 
 // Store
@@ -64,4 +66,19 @@ export type {
     RondinRecordCheckpointExecutionContext,
     RondinRecordCheckpointDependencies
 } from './commands/recordCheckpoint';
+
+// Commands - rondin.finish
+export {
+    isRondinFinishCommand,
+    validateRondinFinishPayload,
+    checkRondinFinishPreconditions,
+    executeRondinFinish,
+    persistRondinFinish,
+    emitRondinFinishAudit
+} from './commands/finish';
+
+export type {
+    RondinFinishExecutionContext,
+    RondinFinishDependencies
+} from './commands/finish';
 

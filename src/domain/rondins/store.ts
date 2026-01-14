@@ -89,6 +89,21 @@ export interface RondinStore {
         rondinId: RondinId,
         checkpointId: CheckpointId
     ): Promise<RondinCheckpointRecord | null>;
+
+    /**
+     * Finish a rondin.
+     * Updates the rondin to FINISHED status with finish timestamp and optional data.
+     */
+    finishRondin(
+        companyId: CompanyId,
+        rondinId: RondinId,
+        finishData: {
+            finishedAt: number;
+            finishCommandId: string;
+            finishLocation?: GeoLocation;
+            finishNotes?: string;
+        }
+    ): Promise<void>;
 }
 
 // ============================================================================
@@ -107,7 +122,10 @@ interface RondinDocument {
     startedAt: admin.firestore.Timestamp;
     finishedAt?: admin.firestore.Timestamp;
     startLocation?: GeoLocation;
+    finishLocation?: GeoLocation;
+    finishNotes?: string;
     sourceCommandId: string;
+    finishCommandId?: string;
 }
 
 /**
@@ -148,7 +166,10 @@ function documentToRecord(doc: RondinDocument): RondinRecord {
         startedAt: doc.startedAt.toMillis(),
         sourceCommandId: doc.sourceCommandId,
         ...(doc.finishedAt !== undefined && { finishedAt: doc.finishedAt.toMillis() }),
-        ...(doc.startLocation !== undefined && { startLocation: doc.startLocation })
+        ...(doc.startLocation !== undefined && { startLocation: doc.startLocation }),
+        ...(doc.finishLocation !== undefined && { finishLocation: doc.finishLocation }),
+        ...(doc.finishNotes !== undefined && { finishNotes: doc.finishNotes }),
+        ...(doc.finishCommandId !== undefined && { finishCommandId: doc.finishCommandId })
     };
 
     return record;
@@ -292,6 +313,35 @@ export class FirestoreRondinStore implements RondinStore {
             sourceCommandId: doc.sourceCommandId,
             ...(doc.location !== undefined && { location: doc.location })
         };
+    }
+
+    async finishRondin(
+        companyId: CompanyId,
+        rondinId: RondinId,
+        finishData: {
+            finishedAt: number;
+            finishCommandId: string;
+            finishLocation?: GeoLocation;
+            finishNotes?: string;
+        }
+    ): Promise<void> {
+        const docRef = this.rondinsCollection(companyId).doc(rondinId);
+
+        const updateData: Partial<RondinDocument> = {
+            status: 'FINISHED',
+            finishedAt: admin.firestore.Timestamp.fromMillis(finishData.finishedAt),
+            finishCommandId: finishData.finishCommandId
+        };
+
+        if (finishData.finishLocation !== undefined) {
+            updateData.finishLocation = finishData.finishLocation;
+        }
+
+        if (finishData.finishNotes !== undefined) {
+            updateData.finishNotes = finishData.finishNotes;
+        }
+
+        await docRef.update(updateData);
     }
 }
 

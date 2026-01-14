@@ -116,6 +116,17 @@ import {
     RondinRecordCheckpointExecutionContext
 } from '../domain/rondins';
 
+// Domain command handlers - rondin.finish
+import {
+    isRondinFinishCommand,
+    validateRondinFinishPayload,
+    checkRondinFinishPreconditions,
+    executeRondinFinish,
+    persistRondinFinish,
+    emitRondinFinishAudit,
+    RondinFinishExecutionContext
+} from '../domain/rondins';
+
 import { ShiftStore } from '../domain/shifts/store';
 import { IncidentStore } from '../domain/incidents/store';
 import { RondinStore } from '../domain/rondins/store';
@@ -483,6 +494,12 @@ async function executePayloadValidation<TPayload>(
         ) as unknown as Promise<CommandExecutionContext<TPayload>>;
     }
 
+    if (isRondinFinishCommand(command)) {
+        return validateRondinFinishPayload(
+            context as unknown as RondinFinishExecutionContext
+        ) as unknown as Promise<CommandExecutionContext<TPayload>>;
+    }
+
     // Default: no-op placeholder for unimplemented commands
     return {
         ...context,
@@ -557,6 +574,13 @@ async function executePreconditionCheck<TPayload>(
         ) as unknown as Promise<CommandExecutionContext<TPayload>>;
     }
 
+    if (isRondinFinishCommand(command)) {
+        return checkRondinFinishPreconditions(
+            context as unknown as RondinFinishExecutionContext,
+            { rondinStore: deps.rondinStore }
+        ) as unknown as Promise<CommandExecutionContext<TPayload>>;
+    }
+
     // Default: no-op placeholder for unimplemented commands
     return {
         ...context,
@@ -622,6 +646,12 @@ async function executeExecution<TPayload>(
     if (isRondinRecordCheckpointCommand(command)) {
         return executeRondinRecordCheckpoint(
             context as unknown as RondinRecordCheckpointExecutionContext
+        ) as unknown as Promise<CommandExecutionContext<TPayload>>;
+    }
+
+    if (isRondinFinishCommand(command)) {
+        return executeRondinFinish(
+            context as unknown as RondinFinishExecutionContext
         ) as unknown as Promise<CommandExecutionContext<TPayload>>;
     }
 
@@ -695,6 +725,13 @@ async function executePersistence<TPayload>(
         ) as unknown as Promise<CommandExecutionContext<TPayload>>;
     }
 
+    if (isRondinFinishCommand(command)) {
+        return persistRondinFinish(
+            context as unknown as RondinFinishExecutionContext,
+            { rondinStore: deps.rondinStore }
+        ) as unknown as Promise<CommandExecutionContext<TPayload>>;
+    }
+
     // Default: throw for unimplemented commands
     throw new StageNotImplementedError('PERSISTENCE');
 }
@@ -761,6 +798,13 @@ async function executeAuditEmission<TPayload>(
     if (isRondinRecordCheckpointCommand(command)) {
         return emitRondinRecordCheckpointAudit(
             context as unknown as RondinRecordCheckpointExecutionContext,
+            { auditStore: deps.auditStore }
+        ) as unknown as Promise<CommandExecutionContext<TPayload>>;
+    }
+
+    if (isRondinFinishCommand(command)) {
+        return emitRondinFinishAudit(
+            context as unknown as RondinFinishExecutionContext,
             { auditStore: deps.auditStore }
         ) as unknown as Promise<CommandExecutionContext<TPayload>>;
     }

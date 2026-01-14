@@ -67,8 +67,17 @@ export interface RondinRecord {
     /** Location where rondin was started (optional) */
     readonly startLocation?: GeoLocation;
 
+    /** Location where rondin was finished (optional) */
+    readonly finishLocation?: GeoLocation;
+
+    /** Notes when finishing the rondin */
+    readonly finishNotes?: string;
+
     /** Command ID that created this rondin (for idempotency tracing) */
     readonly sourceCommandId: string;
+
+    /** Command ID that finished this rondin */
+    readonly finishCommandId?: string;
 }
 
 // ============================================================================
@@ -181,5 +190,37 @@ export interface RondinRecordCheckpointReceipt {
 
     /** Timestamp when checkpoint was scanned */
     readonly scannedAt: number;
+}
+
+// ============================================================================
+// RONDIN.FINISH PAYLOAD
+// ============================================================================
+
+/**
+ * Payload for rondin.finish command.
+ */
+export interface RondinFinishPayload {
+    /** ID of the rondin to finish (required) */
+    readonly rondinId: RondinId;
+
+    /** Location where rondin is finished (optional) */
+    readonly location?: GeoLocation;
+
+    /** Notes when finishing the rondin (optional) */
+    readonly notes?: string;
+}
+
+/**
+ * Receipt returned after rondin.finish command succeeds.
+ */
+export interface RondinFinishReceipt {
+    /** ID of the finished rondin */
+    readonly rondinId: RondinId;
+
+    /** Timestamp when rondin was finished */
+    readonly finishedAt: number;
+
+    /** Duration of the rondin in milliseconds */
+    readonly durationMs: number;
 }
 

@@ -108,7 +108,7 @@ La Fase 3 implementará:
 
 ### Estado
 - **Fase:** 3 - Infraestructura de Comandos
-- **Paso Actual:** 11 - Segundo Comando de Rondines (rondin.recordCheckpoint)
+- **Paso Actual:** 12 - Tercer Comando de Rondines (rondin.finish)
 - **Estado:** COMPLETADO ✅
 - **Rama:** `phase-3-domain-commands`
 
@@ -1289,6 +1289,113 @@ interface RondinRecordCheckpointReceipt {
 #### Lo que NO se implementó
 - ❌ rondin.finish
 - ❌ Validación de secuencia de ruta
+- ❌ Generalización de handlers
+- ❌ UI
+- ❌ Tests
+
+---
+
+### Paso 12: Tercer Comando de Rondines (rondin.finish) — COMPLETADO ✅
+- **Objetivo:** Completar el ciclo de vida del rondín.
+- **Fecha:** 2026-01-14
+- **Fuente:** Patrón de shift.close aplicado a rondines
+
+#### Comando Implementado
+
+**`rondin.finish`** - Finalizar un rondín
+
+#### Reutilización de Patrones
+
+Se reutilizó la misma estructura que shift.close:
+- Mismo patrón de transición de estado (ACTIVE → FINISHED)
+- Misma estructura de preconditions (verificar existencia y estado)
+- Misma auditoría e idempotencia
+- Cálculo de duración del rondín
+
+#### Payload del Comando
+
+```typescript
+interface RondinFinishPayload {
+    readonly rondinId: RondinId;      // Requerido
+    readonly location?: GeoLocation;  // Opcional
+    readonly notes?: string;          // Opcional
+}
+```
+
+#### Receipt del Comando
+
+```typescript
+interface RondinFinishReceipt {
+    readonly rondinId: RondinId;
+    readonly finishedAt: number;
+    readonly durationMs: number;
+}
+```
+
+#### Precondiciones Verificadas
+
+| Precondición | Rechazo si falla |
+|--------------|------------------|
+| Usuario autenticado | `UNAUTHORIZED` |
+| Rondín existe | `RESOURCE_NOT_FOUND` |
+| Rondín está ACTIVO | `INVALID_STATE` |
+
+#### Transición de Estado
+
+```
+Rondin.status: ACTIVE → FINISHED
+```
+
+*Nota: Una vez FINISHED, no se pueden registrar más checkpoints. rondin.recordCheckpoint verifica que el rondín esté ACTIVO.*
+
+#### Campos Actualizados en Firestore
+
+| Campo | Descripción |
+|-------|-------------|
+| `status` | Cambia de `'ACTIVE'` a `'FINISHED'` |
+| `finishedAt` | Timestamp de finalización |
+| `finishCommandId` | ID del comando que finalizó el rondín |
+| `finishLocation` | Ubicación de finalización (opcional) |
+| `finishNotes` | Notas de finalización (opcional) |
+
+#### Archivos Creados
+
+| Archivo | Propósito |
+|---------|----------|
+| `src/domain/rondins/commands/finish.ts` | Handler completo de rondin.finish |
+
+#### Archivos Modificados
+
+| Archivo | Cambio |
+|---------|--------|
+| `src/domain/rondins/types.ts` | Agregar RondinFinishPayload, RondinFinishReceipt, campos de finish |
+| `src/domain/rondins/store.ts` | Agregar método finishRondin(), campos en RondinDocument |
+| `src/domain/rondins/index.ts` | Exportar tipos y handlers de rondin.finish |
+| `src/commands/pipeline.runner.ts` | Wiring de rondin.finish en todas las etapas |
+| `DEV_EXECUTION_LOG.md` | Documentación del paso |
+
+#### Garantías Implementadas
+
+| Garantía | Estado |
+|----------|--------|
+| rondin.finish ejecuta de extremo a extremo | ✅ |
+| Rondín transiciona a FINISHED | ✅ |
+| No se pueden registrar más checkpoints | ✅ |
+| Audit record emitido con duración | ✅ |
+| Duplicado retorna resultado cacheado | ✅ |
+
+#### Verificación
+- ✅ `npm run typecheck` pasa sin errores
+- ✅ rondin.finish ejecuta todas las etapas
+- ✅ Payload validation valida rondinId, location, notes
+- ✅ Precondition check verifica existencia y estado ACTIVO
+- ✅ Rondin record se actualiza en Firestore
+- ✅ Audit record se emite con duración del rondín
+- ✅ Idempotency funciona (duplicados corto-circuitados)
+
+#### Lo que NO se implementó
+- ❌ Validación de secuencia de checkpoints
+- ❌ Requerimiento mínimo de checkpoints
 - ❌ Generalización de handlers
 - ❌ UI
 - ❌ Tests
