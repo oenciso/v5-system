@@ -11,7 +11,7 @@ Cada sub-paso debe ser atómico, auditable y reversible.
 
 ### Estado
 - **Fase:** 2 - Implementación Real de Seguridad
-- **Paso Actual:** 7 - Contexto de empresa (companyId)
+- **Paso Actual:** 8 - Estado de empresa (active/suspended)
 - **Estado:** EN PROGRESO
 - **Rama:** `phase-2-security-implementation`
 
@@ -345,6 +345,56 @@ authorize() → { allowed: false, code: 'DENIED_BY_POLICY' }
 - ❌ Creación de empresas
 - ❌ Activación de módulos
 - ❌ Nuevas políticas de autorización
+- ❌ UI
+
+### Paso 8: Estado de Empresa (active/suspended) — COMPLETADO ✅
+- **Objetivo:** Validar que la empresa esté activa antes de permitir acceso.
+- **Fecha:** 2026-01-14
+
+#### Estados de Empresa Definidos
+```typescript
+type CompanyStatus = 'active' | 'suspended' | 'deleted';
+```
+
+| Estado | Comportamiento |
+|--------|---------------|
+| `active` | Acceso permitido |
+| `suspended` | Acceso bloqueado → InvalidIdentity |
+| `deleted` | Acceso bloqueado → InvalidIdentity |
+
+#### Fuente de companyStatus
+- Custom Claims del token de Firebase
+- Default: `'active'` (compatibilidad con tokens sin este claim)
+
+#### Comportamiento de authenticate()
+```
+1. Sin header → AnonymousIdentity
+2. Token inválido → InvalidIdentity
+3. Sin companyId → InvalidIdentity (malformed)
+4. companyStatus !== 'active' → InvalidIdentity (company_suspended)
+5. Todo válido → AuthenticatedIdentity
+```
+
+#### Nueva razón de invalidez
+```typescript
+reason: 'company_suspended'  // Empresa suspendida o eliminada
+```
+
+#### authorize() SIN CAMBIOS
+- Política ALLOW_AUTHENTICATED funciona igual
+- Deny by default para todo lo demás
+
+#### Verificación
+- ✅ `npm run typecheck` pasa sin errores
+- ✅ Empresas no activas son rechazadas
+- ✅ Solo empresas activas continúan
+- ✅ Autorización no cambia
+
+#### Lo que NO se implementó
+- ❌ Lectura de Firestore
+- ❌ Escritura en Firestore
+- ❌ Nuevas políticas de autorización
+- ❌ Ejecución de dominio
 - ❌ UI
 
 ---

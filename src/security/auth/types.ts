@@ -12,6 +12,16 @@ export type CompanyId = string;
 export type UserRole = 'superadmin' | 'admin' | 'supervisor' | 'guard';
 
 /**
+ * Estado de la empresa.
+ * FASE 2 - PASO 8: Validación de estado de empresa
+ * 
+ * - active: empresa operativa, usuarios pueden trabajar
+ * - suspended: empresa suspendida temporalmente, acceso bloqueado
+ * - deleted: empresa eliminada, acceso permanentemente bloqueado
+ */
+export type CompanyStatus = 'active' | 'suspended' | 'deleted';
+
+/**
  * Identidad de usuario verificada e inmutable.
  * Solo el backend puede construir instancias válidas de UserIdentity.
  * 
@@ -47,10 +57,16 @@ export interface AuthenticatedIdentity extends UserIdentity {
 /**
  * Estado explícito de identidad inválida.
  * Nunca usar null/undefined para representar invalidad.
+ * 
+ * Razones:
+ * - expired: token expirado
+ * - malformed: token mal formado o incompleto
+ * - revoked: token revocado
+ * - company_suspended: empresa suspendida o eliminada
  */
 export interface InvalidIdentity {
     readonly kind: 'invalid';
-    readonly reason: 'expired' | 'malformed' | 'revoked';
+    readonly reason: 'expired' | 'malformed' | 'revoked' | 'company_suspended';
 }
 
 /**

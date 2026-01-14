@@ -35,6 +35,7 @@ export type {
     UserId,
     CompanyId,
     UserRole,
+    CompanyStatus,
     UserIdentity,
     AnonymousIdentity,
     AuthenticatedIdentity,

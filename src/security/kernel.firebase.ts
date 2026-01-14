@@ -2,29 +2,31 @@
  * @fileoverview Firebase-backed Security Kernel Implementation
  * @module security/kernel.firebase
  * 
- * FASE 2 - PASO 7: CONTEXTO DE EMPRESA (companyId)
+ * FASE 2 - PASO 8: ESTADO DE EMPRESA (active/suspended)
  * 
  * Esta implementación:
  * - VERIFICA tokens reales con Firebase Auth
  * - RESUELVE identidad confiable (criptográficamente verificada)
  * - VALIDA que el usuario tenga companyId válido
- * - RECHAZA usuarios sin empresa asignada
+ * - VALIDA que la empresa esté activa (companyStatus)
+ * - RECHAZA usuarios de empresas suspendidas/eliminadas
  * - MANTIENE la autorización exactamente igual
  * - NO accede a Firestore
  * - NO persiste sesiones
  * 
- * Fuente de companyId: Custom Claims del token de Firebase
- * (Decisión: claims sobre Firestore por atomicidad y rendimiento)
+ * Fuente de datos: Custom Claims del token de Firebase
+ * - companyId: identificador de empresa
+ * - companyStatus: estado de la empresa (active|suspended|deleted)
  * 
  * Qué valida:
  * - Firma criptográfica del token
  * - Expiración del token
  * - Emisor del token (proyecto correcto)
  * - Existencia de companyId en claims
+ * - companyStatus === 'active'
  * 
  * Qué NO valida aún:
  * - Que la empresa exista en Firestore
- * - Estado de la empresa (activa/suspendida)
  * - Módulos habilitados
  * 
  * Principios del Canon aplicados:
@@ -41,7 +43,8 @@ import {
     AnonymousIdentity,
     AuthenticatedIdentity,
     InvalidIdentity,
-    UserRole
+    UserRole,
+    CompanyStatus
 } from './auth/types';
 import { AccessPolicy, AuthorizationResult, isPolicyAllowAuthenticated } from './policies/contracts';
 import { SecurityViolation } from './guards/contracts';
@@ -83,7 +86,16 @@ const DENY_INVALID_IDENTITY: AuthorizationResult = Object.freeze({
  */
 const MISSING_COMPANY_IDENTITY: InvalidIdentity = Object.freeze({
     kind: 'invalid' as const,
-    reason: 'malformed' as const  // Se considera malformado porque falta claim requerido
+    reason: 'malformed' as const
+});
+
+/**
+ * Identidad inválida por empresa suspendida/eliminada.
+ * PASO 8: Empresa no activa.
+ */
+const SUSPENDED_COMPANY_IDENTITY: InvalidIdentity = Object.freeze({
+    kind: 'invalid' as const,
+    reason: 'company_suspended' as const
 });
 
 // ============================================================================
@@ -146,6 +158,28 @@ function extractCompanyIdFromToken(decodedToken: DecodedIdToken): string | null 
     }
 
     return companyId;
+}
+
+/**
+ * Extrae el estado de empresa del token decodificado.
+ * 
+ * PASO 8: Validación de estado de empresa
+ * - companyStatus debe ser 'active' para permitir acceso
+ * - Si no existe, se asume 'active' (compatibilidad hacia atrás)
+ * 
+ * @param decodedToken - Token decodificado de Firebase
+ * @returns Estado de la empresa
+ */
+function extractCompanyStatusFromToken(decodedToken: DecodedIdToken): CompanyStatus {
+    const status = decodedToken['companyStatus'] as string | undefined;
+
+    const validStatuses: CompanyStatus[] = ['active', 'suspended', 'deleted'];
+    if (status && validStatuses.includes(status as CompanyStatus)) {
+        return status as CompanyStatus;
+    }
+
+    // Default: active (compatibilidad con tokens sin este claim)
+    return 'active';
 }
 
 // ============================================================================
@@ -213,7 +247,18 @@ export class FirebaseSecurityKernel implements SecurityKernel {
                 };
             }
 
-            // 4. Construir identidad autenticada desde token verificado
+            // 4. PASO 8: Validar que la empresa está activa
+            const companyStatus = extractCompanyStatusFromToken(decodedToken);
+
+            if (companyStatus !== 'active') {
+                // Empresa suspendida o eliminada → InvalidIdentity
+                return {
+                    identity: SUSPENDED_COMPANY_IDENTITY,
+                    token
+                };
+            }
+
+            // 5. Construir identidad autenticada desde token verificado
             const authenticatedIdentity: AuthenticatedIdentity = {
                 kind: 'authenticated',
                 uid: decodedToken.uid,
