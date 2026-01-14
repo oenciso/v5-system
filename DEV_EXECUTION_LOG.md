@@ -11,7 +11,7 @@ Cada sub-paso debe ser atómico, auditable y reversible.
 
 ### Estado
 - **Fase:** 2 - Implementación Real de Seguridad
-- **Paso Actual:** 3 - Implementación mínima del SecurityKernel
+- **Paso Actual:** 4 - Autenticación real (sin autorización)
 - **Estado:** EN PROGRESO
 - **Rama:** `phase-2-security-implementation`
 
@@ -154,6 +154,55 @@ assertAuthorized() → siempre lanza SecurityViolation
 - ❌ Persistencia de estado
 - ❌ Roles reales
 - ❌ Lógica de negocio
+
+### Paso 4: Autenticación Real (Sin Autorización) — COMPLETADO ✅
+- **Objetivo:** Resolver identidad desde headers sin autorizar acceso.
+- **Fecha:** 2026-01-14
+
+#### Implementación: AuthenticatingSecurityKernel
+
+**Señales de identidad que se leen:**
+- `Authorization` header (formato: `Bearer <token>`)
+- Token JWT decodificado (payload)
+
+**Flujo de authenticate():**
+```
+1. Sin header → AnonymousIdentity
+2. Header malformado → InvalidIdentity (reason: 'malformed')
+3. Token expirado → InvalidIdentity (reason: 'expired')
+4. Token válido → AuthenticatedIdentity
+```
+
+**Lo que NO se valida aún:**
+- Firma criptográfica del token (placeholder)
+- Existencia del usuario en base de datos
+- Revocación de token
+- App Check
+
+**authorize() sigue denegando TODO:**
+```typescript
+authorize() → { allowed: false, code: 'DENIED_BY_POLICY' }
+```
+
+#### Archivos Modificados
+| Archivo | Cambio |
+|---------|--------|
+| `src/security/kernel.impl.ts` | +AuthenticatingSecurityKernel, +base64UrlDecode puro |
+| `src/security/auth/types.ts` | +authorizationHeader en RequestContext |
+| `src/security/index.ts` | +exportaciones nuevas |
+
+#### Verificación
+- ✅ `npm run typecheck` pasa sin errores
+- ✅ authenticate() resuelve identidades reales
+- ✅ authorize() sigue denegando TODO
+- ✅ No hay persistencia de sesiones
+- ✅ No hay dependencias externas agregadas
+
+#### Lo que NO se implementó
+- ❌ Autorización real (authorize sigue deny-all)
+- ❌ Firebase
+- ❌ Escritura de cookies
+- ❌ Dependencias nuevas
 
 ---
 

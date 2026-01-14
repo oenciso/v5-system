@@ -67,14 +67,16 @@ export interface AuthContext {
 /**
  * Contexto crudo de una solicitud HTTP/HTTPS.
  * 
- * TODO [FASE 2 - Request Context]:
- * - Agregar bearer token desde Authorization header
- * - Agregar App Check token
- * - Agregar device fingerprint para auditoría
+ * FASE 2 - PASO 4: Lectura de credenciales habilitada
  */
 export interface RequestContext {
     readonly ip: string;
     readonly timestamp: number;
-    // TODO: readonly authorizationHeader?: string;
-    // TODO: readonly appCheckToken?: string;
+    /** 
+     * Header de autorización (Bearer token).
+     * Formato esperado: "Bearer <token>"
+     * undefined si no hay header de autorización.
+     */
+    readonly authorizationHeader?: string;
+    // TODO [Futuro]: readonly appCheckToken?: string;
 }

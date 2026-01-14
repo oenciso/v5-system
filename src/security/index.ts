@@ -2,15 +2,20 @@
  * @fileoverview Security Module Public API
  * @module security
  * 
- * FASE 2 - PASO 3
+ * FASE 2 - PASO 4
  * Exportaciones públicas del módulo de seguridad.
  */
 
 // Contrato
 export type { SecurityKernel } from './kernel';
 
-// Implementación
-export { DenyAllSecurityKernel, createSecurityKernel } from './kernel.impl';
+// Implementaciones
+export {
+    AuthenticatingSecurityKernel,
+    DenyAllSecurityKernel,
+    createSecurityKernel,
+    createDenyAllKernel
+} from './kernel.impl';
 
 // Tipos de autenticación
 export type {
