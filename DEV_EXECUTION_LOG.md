@@ -107,8 +107,8 @@ La Fase 3 implementará:
 ## [2026-01-14] INICIO FASE 3: Infraestructura de Comandos
 
 ### Estado
-- **Fase:** 3 - Infraestructura de Comandos
-- **Paso Actual:** 13 - Primer Comando de Checklists (checklist.submit)
+- **Fase:** 4 - Client / UI
+- **Paso Actual:** 1 - UI Shell + Command Consumption
 - **Estado:** COMPLETADO ✅
 - **Rama:** `phase-3-domain-commands`
 
@@ -1529,6 +1529,122 @@ ChecklistSubmission.status: ∅ → SUBMITTED
 - ❌ Generalización de handlers
 - ❌ UI
 - ❌ Tests
+
+---
+
+## [2026-01-14] INICIO FASE 4: Client / UI
+
+### Paso 1: UI Shell + Command Consumption — COMPLETADO ✅
+- **Objetivo:** Crear minimal UI shell que puede autenticar y ejecutar comandos.
+- **Fecha:** 2026-01-14
+- **Fuente:** SISTEMA_UI_CANONICO.md
+
+#### Proyecto Web Creado
+
+**Tecnología:** Vite + React + TypeScript
+**Ubicación:** `web/`
+
+#### Reglas Canónicas Aplicadas
+
+| Regla | Implementación |
+|-------|----------------|
+| UI nunca asume éxito | ✅ Estados idle → pending → accepted/rejected |
+| UI nunca infiere permisos | ✅ No role-based branching |
+| UI refleja verdad del backend | ✅ CommandClient consume resultados as-is |
+| Todas las acciones son comandos | ✅ checklist.submit implementado |
+| Errores se muestran, nunca se ocultan | ✅ ErrorInline component |
+| Offline actions marcadas como pending | ✅ OfflineBanner component |
+| Backend es la única autoridad | ✅ No inferencia de estados |
+
+#### Archivos Creados
+
+**Lib (biblioteca de utilidades):**
+| Archivo | Propósito |
+|---------|----------|
+| `web/src/lib/firebase.ts` | Configuración Firebase Auth + Functions |
+| `web/src/lib/auth.tsx` | AuthContext, AuthProvider, useAuth hook |
+| `web/src/lib/command-client.ts` | CommandClient genérico para ejecutar comandos |
+
+**Components (componentes canónicos):**
+| Archivo | Propósito |
+|---------|----------|
+| `web/src/components/tokens.ts` | Design tokens semánticos |
+| `web/src/components/PrimaryButton.tsx` | Botón primario canónico |
+| `web/src/components/StatusBadge.tsx` | Badge de estados (pending/accepted/rejected) |
+| `web/src/components/ErrorInline.tsx` | Display de errores inline |
+| `web/src/components/OfflineBanner.tsx` | Banner de estado offline |
+| `web/src/components/index.ts` | Exportaciones del módulo |
+
+**Pages:**
+| Archivo | Propósito |
+|---------|----------|
+| `web/src/pages/Login.tsx` | Página de login con Firebase Auth |
+| `web/src/pages/ChecklistSubmit.tsx` | Prueba de integración - ejecuta checklist.submit |
+| `web/src/pages/index.ts` | Exportaciones del módulo |
+
+**App:**
+| Archivo | Propósito |
+|---------|----------|
+| `web/src/App.tsx` | Shell principal con AuthProvider y routing |
+| `web/src/index.css` | Reset CSS global |
+| `web/.env.example` | Ejemplo de variables de entorno |
+
+#### Command Client
+
+El cliente de comandos:
+- Genera commandId único
+- Envía comandos a Cloud Functions
+- Recibe resultados as-is (ACCEPTED/REJECTED)
+- NUNCA interpreta ni modifica resultados
+- Maneja errores de red como rejection sintético
+
+```typescript
+type CommandState = 'idle' | 'pending' | 'accepted' | 'rejected';
+
+interface CommandResult<TReceipt> {
+    outcome: 'ACCEPTED' | 'REJECTED';
+    commandId: string;
+    receipt?: TReceipt;
+    rejection?: { code, message, stage };
+}
+```
+
+#### Transición de Estados
+
+```
+idle → pending → accepted
+                └→ rejected
+```
+
+#### Pantalla de Prueba: Checklist Submit
+
+Implementa el flujo completo:
+1. Form con checklistId, answers, notes
+2. Botón Submit que envía comando
+3. StatusBadge mostrando estado actual
+4. ErrorInline mostrando errores de rejection
+5. Panel de éxito mostrando receipt
+
+#### Lo que NO se implementó
+
+| Item | Status |
+|------|--------|
+| Lógica de negocio en UI | ❌ EVITADO |
+| Inferencia de permisos | ❌ EVITADO |
+| Role-based branching | ❌ EVITADO |
+| Optimistic success | ❌ EVITADO |
+| Custom UX patterns | ❌ EVITADO |
+| Nuevos endpoints backend | ❌ NO CREADOS |
+| Mobile (Android) | ❌ NO IMPLEMENTADO |
+
+#### Verificación
+- ✅ `npx tsc --noEmit` pasa sin errores
+- ✅ Firebase Auth integrado
+- ✅ CommandClient implementado
+- ✅ Componentes canónicos creados
+- ✅ ChecklistSubmit ejecuta comando
+- ✅ Estados visibles (idle/pending/accepted/rejected)
+- ✅ Errores nunca ocultos
 
 ---
 

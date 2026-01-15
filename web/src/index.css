@@ -1,0 +1,41 @@
+/**
+ * Global styles for the web app.
+ * 
+ * FASE 4 - PASO 1: UI SHELL
+ * 
+ * Minimal reset and base styles.
+ * Colors and tokens are in components/tokens.ts
+ */
+
+/* Reset */
+*, *::before, *::after {
+    box-sizing: border-box;
+}
+
+html, body {
+    margin: 0;
+    padding: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    font-size: 16px;
+    line-height: 1.5;
+    color: #1F2937;
+    background-color: #F8FAFC;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+}
+
+/* Remove default button styles */
+button {
+    font-family: inherit;
+}
+
+/* Remove default input styles */
+input, textarea, select {
+    font-family: inherit;
+}
+
+/* Focus styles */
+:focus-visible {
+    outline: 2px solid #0B1C2D;
+    outline-offset: 2px;
+}
